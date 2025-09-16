@@ -1,0 +1,11 @@
+Sample Document Content
+
+This is a test document for OnlyOffice integration with Angular.
+
+Features to test:
+1. Document loading
+2. Text editing
+3. Formatting options
+4. Save functionality
+
+The document should load in the OnlyOffice editor.
