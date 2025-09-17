@@ -5,9 +5,14 @@
 /tmp
 /out-tsc
 /bazel-out
+client/dist
+client/tmp
+client/out-tsc
+client/bazel-out
 
 # Node
 /node_modules
+client/node_modules
 npm-debug.log
 yarn-error.log
 
@@ -26,12 +31,21 @@ yarn-error.log
 
 # Miscellaneous
 /.angular/cache
+client/.angular/cache
 .sass-cache/
 /connect.lock
 /coverage
+client/coverage
 /libpeerconnection.log
 testem.log
 /typings
+
+# .NET
+server/bin/
+server/obj/
+server/*.user
+server/.vs/
+server/packages/
 
 # Environment files
 .env
