@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -10,15 +11,37 @@ import { Router } from '@angular/router';
 export class LoginComponent {
   username = '';
   password = '';
+  errorMessage = '';
+  isLoading = false;
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) {}
 
   onLogin() {
-    // Mock authentication - accept any credentials
-    if (this.username && this.password) {
-      // In real app, set authentication cookie here
-      console.log('Mock login successful for:', this.username);
-      this.router.navigate(['/files']);
+    if (!this.username || !this.password) {
+      this.errorMessage = 'Please enter both username and password';
+      return;
     }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.authService.login({ username: this.username, password: this.password })
+      .subscribe({
+        next: (response) => {
+          console.log('Login successful:', response);
+          this.router.navigate(['/files']);
+        },
+        error: (error) => {
+          console.error('Login failed:', error);
+          this.errorMessage = error.error?.message || 'Login failed. Please try again.';
+          this.isLoading = false;
+        },
+        complete: () => {
+          this.isLoading = false;
+        }
+      });
   }
 }

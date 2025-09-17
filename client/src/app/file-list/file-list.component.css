@@ -11,6 +11,17 @@
   margin-bottom: 2rem;
 }
 
+.title-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-text {
+  margin: 0.5rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
 .logout-btn {
   padding: 0.5rem 1rem;
   background-color: #dc3545;

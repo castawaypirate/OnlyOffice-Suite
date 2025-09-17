@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthService, AuthStatus } from '../services/auth.service';
+import { Observable } from 'rxjs';
 
 interface FileItem {
   id: string;
@@ -14,7 +16,7 @@ interface FileItem {
   styleUrls: ['./file-list.component.css'],
   standalone: false
 })
-export class FileListComponent {
+export class FileListComponent implements OnInit {
   files: FileItem[] = [
     {
       id: 'sample-1',
@@ -23,16 +25,37 @@ export class FileListComponent {
       size: '240 bytes'
     }
   ];
+  currentUser$: Observable<AuthStatus>;
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) {
+    this.currentUser$ = this.authService.currentUser$;
+  }
+
+  ngOnInit() {
+    // Check if user is authenticated, redirect to login if not
+    if (!this.authService.isAuthenticated) {
+      this.router.navigate(['/login']);
+    }
+  }
 
   openDocument(fileId: string) {
     this.router.navigate(['/editor', fileId]);
   }
 
   onLogout() {
-    // In real app, clear authentication cookie here
-    console.log('Logging out...');
-    this.router.navigate(['/login']);
+    this.authService.logout().subscribe({
+      next: () => {
+        console.log('Logout successful');
+        this.router.navigate(['/login']);
+      },
+      error: (error) => {
+        console.error('Logout failed:', error);
+        // Even if logout fails, redirect to login
+        this.router.navigate(['/login']);
+      }
+    });
   }
 }

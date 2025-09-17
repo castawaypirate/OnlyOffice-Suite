@@ -1,5 +1,6 @@
 import { Component, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing.module';
 import { OnlyOfficeModule } from './onlyoffice.module';
 import { AuthModule } from './auth/auth.module';
@@ -17,7 +18,8 @@ export class App {}
 @NgModule({
   declarations: [App],
   imports: [
-    BrowserModule, 
+    BrowserModule,
+    HttpClientModule,
     AppRoutingModule, 
     OnlyOfficeModule,
     AuthModule,

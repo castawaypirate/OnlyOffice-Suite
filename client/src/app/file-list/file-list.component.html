@@ -1,6 +1,11 @@
 <div class="file-list-container">
   <div class="header">
-    <h2>My Documents</h2>
+    <div class="title-section">
+      <h2>My Documents</h2>
+      <p *ngIf="currentUser$ | async as user" class="welcome-text">
+        Welcome, {{ user.username }}!
+      </p>
+    </div>
     <button class="logout-btn" (click)="onLogout()">Logout</button>
   </div>
   

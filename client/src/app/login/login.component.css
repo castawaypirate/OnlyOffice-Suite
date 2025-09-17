@@ -36,11 +36,26 @@ input {
   font-size: 1rem;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
-.mock-info {
+.login-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.test-info {
   text-align: center;
   color: #666;
   font-size: 0.9rem;
