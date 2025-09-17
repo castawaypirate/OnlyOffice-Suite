@@ -10,9 +10,22 @@
   </div>
   
   <div class="upload-section">
-    <button class="upload-btn" disabled>
-      📁 Upload Document (Coming Soon)
+    <input 
+      type="file" 
+      #fileInput 
+      (change)="onFileSelected($event)" 
+      style="display: none;"
+      accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,.txt">
+    <button 
+      class="upload-btn" 
+      (click)="fileInput.click()"
+      [disabled]="isLoading">
+      📁 {{ isLoading ? 'Uploading...' : 'Upload Document' }}
     </button>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
   </div>
 
   <div class="files-table">
@@ -30,11 +43,24 @@
           <td>{{ file.name }}</td>
           <td>{{ file.uploadDate | date:'short' }}</td>
           <td>{{ file.size }}</td>
-          <td>
+          <td class="actions">
+            <button 
+              class="download-btn" 
+              (click)="downloadFile(file)"
+              title="Download file">
+              ⬇️ Download
+            </button>
             <button 
               class="open-btn" 
-              (click)="openDocument(file.id)">
+              (click)="openDocument(file.id)"
+              title="Open in editor">
               📝 Open
+            </button>
+            <button 
+              class="delete-btn" 
+              (click)="deleteFile(file)"
+              title="Delete file">
+              🗑️ Delete
             </button>
           </td>
         </tr>
@@ -42,7 +68,11 @@
     </table>
   </div>
 
-  <div *ngIf="files.length === 0" class="no-files">
-    <p>No documents uploaded yet.</p>
+  <div *ngIf="files.length === 0 && !isLoading" class="no-files">
+    <p>No documents uploaded yet. Upload your first document to get started!</p>
+  </div>
+
+  <div *ngIf="isLoading" class="loading">
+    <p>Loading...</p>
   </div>
 </div>

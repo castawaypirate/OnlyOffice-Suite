@@ -1,1 +1,1 @@
-# OnlyOffice-Angular
+# OnlyOffice-Suite

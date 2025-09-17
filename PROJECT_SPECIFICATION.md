@@ -139,27 +139,54 @@ public class FileEntity
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/status` - Check authentication status
+- `POST /api/auth/login` - User login with username/password
+- `POST /api/auth/logout` - User logout and session cleanup
+- `GET /api/auth/status` - Check current authentication status
 
 ### File Management
-- `GET /api/files` - List user's files
-- `POST /api/files/upload` - Upload new file
-- `GET /api/files/{id}` - Get file metadata
-- `GET /api/files/{id}/download` - Download file
-- `DELETE /api/files/{id}` - Delete file
+- `GET /api/files` - List user's files with metadata
+- `POST /api/files/upload` - Upload new file (multipart/form-data)
+- `GET /api/files/{id}/download` - Download file by ID
+- `DELETE /api/files/{id}` - Delete file by ID
 
-### OnlyOffice Integration
+### WebDAV Endpoints
+- `OPTIONS /webdav/{userId}/` - Discover WebDAV capabilities
+- `PROPFIND /webdav/{userId}/` - List directory contents and file properties
+- `GET /webdav/{userId}/{filename}` - Download file via WebDAV
+- `PUT /webdav/{userId}/{filename}` - Upload/update file via WebDAV  
+- `DELETE /webdav/{userId}/{filename}` - Delete file via WebDAV
+
+### OnlyOffice Integration (Planned)
 - `GET /api/files/{id}/editor-config` - Get OnlyOffice configuration
 - `POST /api/files/{id}/callback` - OnlyOffice save callback
+
+## Current Working Features
+
+### Authentication System
+- **Web Login**: Session-based authentication with cookies
+- **WebDAV Login**: HTTP Basic Authentication with same credentials
+- **User Isolation**: Each user can only access their own files
+- **Test Accounts**: admin/admin123 (userId=1), user1/password (userId=2)
+
+### File Management
+- **Web Upload**: Drag & drop or click to upload files
+- **Web Download**: Direct download with original filenames
+- **WebDAV Access**: Mount as network drive in file managers
+- **Cross-Platform**: Files uploaded via web appear in WebDAV and vice versa
+- **File Operations**: Upload, download, delete, list with metadata
+
+### WebDAV Endpoints (Working)
+- **Windows**: `http://localhost:5142/webdav/1/` (for admin)
+- **macOS/Linux**: Same URLs work in Finder/Nautilus
+- **Command Line**: Full curl testing support
+- **Authentication**: Uses same credentials as web login
 
 ## Development Setup
 
 ### Prerequisites
 - Node.js 18+ (for Angular frontend)
-- .NET 8 SDK
-- OnlyOffice Document Server running on port 3131
+- .NET 9 SDK
+- OnlyOffice Document Server running on port 3131 (optional for now)
 
 ### Project Structure
 ```
@@ -182,18 +209,19 @@ OnlyOffice-Suite/
 
 ### Current Implementation Status
 - ✅ Angular frontend with OnlyOffice integration
-- ✅ Mock authentication and file listing (frontend)
-- ✅ OnlyOffice editor component
 - ✅ .NET Core Web API backend setup
 - ✅ SQLite database with Entity Framework Core
 - ✅ User and FileEntity models with relationships
 - ✅ Session-based authentication (login/logout/status endpoints)
-- ✅ Database seeding with test users
+- ✅ Database seeding with test users (admin/admin123, user1/password)
 - ✅ CORS configuration for Angular frontend
-- ❌ File upload/download endpoints
-- ❌ WebDAV server implementation
-- ❌ OnlyOffice integration endpoints
-- ❌ Frontend integration with real backend APIs
+- ✅ **File upload/download endpoints** (POST /api/files/upload, GET /api/files/{id}/download)
+- ✅ **File management APIs** (GET /api/files, DELETE /api/files/{id})
+- ✅ **Frontend integration with real backend APIs** (FileService, real file operations)
+- ✅ **WebDAV server implementation** (full PROPFIND, GET, PUT, DELETE support)
+- ✅ **Cross-platform file access** (web interface + WebDAV clients)
+- ❌ OnlyOffice Document Server integration endpoints
+- ❌ Frontend OnlyOffice editor connected to backend files
 
 ## Future Enhancements (Post-POC)
 - Password hashing and proper security
@@ -225,6 +253,24 @@ OnlyOffice-Suite/
 - **Added**: Database seeding service with test users (admin/admin123, user1/password)
 - **Setup**: CORS configuration for Angular frontend integration
 - **Updated**: Project specification to reflect Entity Framework approach instead of raw SQL
+
+### 2025-09-17 - File Management System Complete
+- **Backend APIs**: Complete file upload/download/delete system with FileService
+- **File Storage**: User-specific directories with unique filename handling
+- **File Metadata**: Size calculation, content-type detection, upload tracking
+- **Frontend Integration**: Angular FileService with real API communication
+- **User Interface**: File upload, download, delete with progress indicators
+- **Cross-Compatibility**: Files uploaded via web appear in database immediately
+- **Error Handling**: Comprehensive error states and user feedback
+
+### 2025-09-17 - WebDAV Server Implementation Complete
+- **WebDAV Protocol**: Full server implementation with PROPFIND, GET, PUT, DELETE
+- **Authentication**: HTTP Basic Authentication using same user credentials
+- **File Access**: Cross-platform access via Windows Explorer, macOS Finder, Linux file managers
+- **Unified Storage**: WebDAV uses same file storage as web interface
+- **User Isolation**: Users can only access their own WebDAV directories (/webdav/{userId}/)
+- **Content Types**: Proper MIME type detection and HTTP headers
+- **Debugging**: Added detailed logging for troubleshooting access issues
 
 ### Future Entries
 *Changelog entries will be added here as development progresses*
