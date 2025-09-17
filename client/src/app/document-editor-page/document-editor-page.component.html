@@ -1,0 +1,23 @@
+<div class="editor-page">
+  <div class="editor-header">
+    <button class="back-btn" (click)="goBack()">
+      ← Back to Files
+    </button>
+    <h2>{{ fileName }}</h2>
+  </div>
+  
+  <div class="editor-container" *ngIf="config">
+    <document-editor 
+      [documentServerUrl]="documentServerUrl"
+      [config]="config"
+      (onDocumentReady)="onDocumentReady()"
+      (onDocumentStateChange)="onDocumentStateChange($event)"
+      (onError)="onError($event)"
+      style="height: 800px; width: 100%;">
+    </document-editor>
+  </div>
+  
+  <div *ngIf="!config" class="loading">
+    Loading document...
+  </div>
+</div>

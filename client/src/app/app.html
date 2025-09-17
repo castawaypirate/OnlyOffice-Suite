@@ -1,14 +1,1 @@
-<div class="container">
-  <h1>{{ title }}</h1>
-  
-  <div class="document-editor">
-    <document-editor 
-      [documentServerUrl]="documentServerUrl"
-      [config]="config"
-      (onDocumentReady)="onDocumentReady()"
-      (onDocumentStateChange)="onDocumentStateChange($event)"
-      (onError)="onError($event)"
-      style="height: 800px; width: 100%;">
-    </document-editor>
-  </div>
-</div>
+<router-outlet></router-outlet>

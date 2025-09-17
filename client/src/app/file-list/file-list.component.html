@@ -1,0 +1,43 @@
+<div class="file-list-container">
+  <div class="header">
+    <h2>My Documents</h2>
+    <button class="logout-btn" (click)="onLogout()">Logout</button>
+  </div>
+  
+  <div class="upload-section">
+    <button class="upload-btn" disabled>
+      📁 Upload Document (Coming Soon)
+    </button>
+  </div>
+
+  <div class="files-table">
+    <table>
+      <thead>
+        <tr>
+          <th>File Name</th>
+          <th>Upload Date</th>
+          <th>Size</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let file of files">
+          <td>{{ file.name }}</td>
+          <td>{{ file.uploadDate | date:'short' }}</td>
+          <td>{{ file.size }}</td>
+          <td>
+            <button 
+              class="open-btn" 
+              (click)="openDocument(file.id)">
+              📝 Open
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="files.length === 0" class="no-files">
+    <p>No documents uploaded yet.</p>
+  </div>
+</div>
