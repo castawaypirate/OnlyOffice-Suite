@@ -1,14 +1,13 @@
 # OnlyOffice-Angular Suite - Project Specification
 
 ## Project Overview
-A proof-of-concept web application that integrates OnlyOffice Document Server for collaborative document editing. The application provides secure file management with WebDAV access and session-based authentication.
+A proof-of-concept web application that integrates OnlyOffice Document Server for collaborative document editing. The application provides secure file management and session-based authentication.
 
 ## Core Features
 1. **Authentication System**: Simple username/password login with server-side sessions
 2. **File Management**: Upload, list, and download files with user-specific access control
 3. **OnlyOffice Integration**: Real-time document editing through OnlyOffice Document Server
-4. **WebDAV Access**: File access through WebDAV protocol for external clients
-5. **Security**: Token-based file access for OnlyOffice with expiration
+4. **Security**: Token-based file access for OnlyOffice with expiration
 
 ## Technical Architecture
 
@@ -24,7 +23,6 @@ A proof-of-concept web application that integrates OnlyOffice Document Server fo
 - **Framework**: ASP.NET Core
 - **Database**: SQLite with Entity Framework Core
 - **Authentication**: Session-based with HTTP cookies
-- **WebDAV**: Custom WebDAV server implementation
 
 ### Database Schema (SQLite with Entity Framework Core)
 
@@ -77,15 +75,9 @@ public class FileEntity
 - **User Creation**: Database seeding with test users (admin/admin123, user1/password)
 - **Password Security**: Plain text storage (POC only - not production ready)
 
-### WebDAV Authentication
-- **Method**: HTTP Basic Authentication
-- **Credentials**: Same username/password as web login
-- **Integration**: Authenticates against same Users table
-
 ### File Security
 - **Access Control**: Users can only access their own files through web interface
 - **OnlyOffice Tokens**: Time-limited tokens for document server access
-- **WebDAV Structure**: User-specific directories (`/webdav/{userId}/`)
 
 ## File Management
 
@@ -99,42 +91,22 @@ public class FileEntity
 1. **Upload**: POST to `/api/files/upload`
 2. **List**: GET `/api/files` (returns user's files only)
 3. **Download**: GET `/api/files/{id}/download`
-4. **WebDAV Access**: `/webdav/{userId}/{filename}`
-5. **OnlyOffice Edit**: `/editor/{fileId}` with token authentication
+4. **OnlyOffice Edit**: `/editor/{fileId}` with token authentication
 
 ## OnlyOffice Integration
 
 ### Document Server Configuration
 - **URL**: `http://localhost:3131/` (configurable)
 - **Authentication**: JWT tokens generated server-side
-- **File Access**: Via WebDAV or direct file serving
-- **Save Callback**: Documents saved back via WebDAV
+- **File Access**: Via direct file serving
+- **Save Callback**: Documents saved back to file system
 
 ### Document Editor Flow
 1. User clicks "Edit" button on file
 2. Backend generates time-limited token
 3. Frontend loads OnlyOffice editor with token
 4. OnlyOffice Document Server accesses file via token
-5. Changes saved back to WebDAV location
-
-## WebDAV Implementation
-
-### Endpoint Structure
-- **Root**: `/webdav/`
-- **User Directories**: `/webdav/{userId}/`
-- **File Access**: `/webdav/{userId}/{filename}`
-
-### Supported Operations
-- **PROPFIND**: Directory listing
-- **GET**: File download
-- **PUT**: File upload/update
-- **DELETE**: File removal
-- **MKCOL**: Directory creation
-
-### Authentication
-- **Method**: HTTP Basic Authentication
-- **Validation**: Against Users table
-- **Access Control**: Users can only access their own directory
+5. Changes saved back to file system
 
 ## API Endpoints
 
@@ -149,13 +121,6 @@ public class FileEntity
 - `GET /api/files/{id}/download` - Download file by ID
 - `DELETE /api/files/{id}` - Delete file by ID
 
-### WebDAV Endpoints
-- `OPTIONS /webdav/{userId}/` - Discover WebDAV capabilities
-- `PROPFIND /webdav/{userId}/` - List directory contents and file properties
-- `GET /webdav/{userId}/{filename}` - Download file via WebDAV
-- `PUT /webdav/{userId}/{filename}` - Upload/update file via WebDAV  
-- `DELETE /webdav/{userId}/{filename}` - Delete file via WebDAV
-
 ### OnlyOffice Integration (Planned)
 - `GET /api/files/{id}/editor-config` - Get OnlyOffice configuration
 - `POST /api/files/{id}/callback` - OnlyOffice save callback
@@ -164,22 +129,13 @@ public class FileEntity
 
 ### Authentication System
 - **Web Login**: Session-based authentication with cookies
-- **WebDAV Login**: HTTP Basic Authentication with same credentials
 - **User Isolation**: Each user can only access their own files
 - **Test Accounts**: admin/admin123 (userId=1), user1/password (userId=2)
 
 ### File Management
 - **Web Upload**: Drag & drop or click to upload files
 - **Web Download**: Direct download with original filenames
-- **WebDAV Access**: Mount as network drive in file managers
-- **Cross-Platform**: Files uploaded via web appear in WebDAV and vice versa
 - **File Operations**: Upload, download, delete, list with metadata
-
-### WebDAV Endpoints (Working)
-- **Windows**: `http://localhost:5142/webdav/1/` (for admin)
-- **macOS/Linux**: Same URLs work in Finder/Nautilus
-- **Command Line**: Full curl testing support
-- **Authentication**: Uses same credentials as web login
 
 ## Development Setup
 
@@ -218,8 +174,6 @@ OnlyOffice-Suite/
 - ✅ **File upload/download endpoints** (POST /api/files/upload, GET /api/files/{id}/download)
 - ✅ **File management APIs** (GET /api/files, DELETE /api/files/{id})
 - ✅ **Frontend integration with real backend APIs** (FileService, real file operations)
-- ✅ **WebDAV server implementation** (full PROPFIND, GET, PUT, DELETE support)
-- ✅ **Cross-platform file access** (web interface + WebDAV clients)
 - ❌ OnlyOffice Document Server integration endpoints
 - ❌ Frontend OnlyOffice editor connected to backend files
 
@@ -228,7 +182,7 @@ OnlyOffice-Suite/
 - User management interface
 - File versioning system
 - Collaborative editing features
-- Advanced WebDAV features (locking, versioning)
+- WebDAV integration for external file access
 - File sharing between users
 - Audit logging
 - File type validation and virus scanning
@@ -240,7 +194,6 @@ OnlyOffice-Suite/
 ### 2025-09-17 - Initial Specification
 - **Created**: Complete project specification document
 - **Defined**: Technical architecture with .NET backend and SQLite database
-- **Planned**: WebDAV integration with user-specific directories
 - **Established**: Security model with session-based auth and file tokens
 - **Documented**: Database schema and API endpoints
 - **Identified**: Current implementation status and gaps
@@ -262,15 +215,6 @@ OnlyOffice-Suite/
 - **User Interface**: File upload, download, delete with progress indicators
 - **Cross-Compatibility**: Files uploaded via web appear in database immediately
 - **Error Handling**: Comprehensive error states and user feedback
-
-### 2025-09-17 - WebDAV Server Implementation Complete
-- **WebDAV Protocol**: Full server implementation with PROPFIND, GET, PUT, DELETE
-- **Authentication**: HTTP Basic Authentication using same user credentials
-- **File Access**: Cross-platform access via Windows Explorer, macOS Finder, Linux file managers
-- **Unified Storage**: WebDAV uses same file storage as web interface
-- **User Isolation**: Users can only access their own WebDAV directories (/webdav/{userId}/)
-- **Content Types**: Proper MIME type detection and HTTP headers
-- **Debugging**: Added detailed logging for troubleshooting access issues
 
 ### Future Entries
 *Changelog entries will be added here as development progresses*

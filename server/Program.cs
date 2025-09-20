@@ -19,7 +19,6 @@ builder.Services.AddSession(options =>
 
 // Add services
 builder.Services.AddScoped<FileService>();
-builder.Services.AddScoped<WebDavService>();
 
 // Add controllers
 builder.Services.AddControllers();
@@ -56,7 +55,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAngular");
-app.UseMiddleware<WebDavMiddleware>();
 app.UseSession();
 app.UseHttpsRedirection();
 
