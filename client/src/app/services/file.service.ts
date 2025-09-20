@@ -20,6 +20,24 @@ export interface UploadResponse {
   message: string;
 }
 
+export interface OnlyOfficeConfig {
+  document: {
+    fileType: string;
+    key: string;
+    title: string;
+    url: string;
+    permissions: {
+      edit: boolean;
+      download: boolean;
+      print: boolean;
+    };
+  };
+  documentType: string;
+  editorConfig: {
+    mode: string;
+  };
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -74,6 +92,13 @@ export class FileService {
   deleteFile(fileId: number): Observable<{message: string}> {
     return this.http.delete<{message: string}>(
       `${this.apiUrl}/files/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
+  getOnlyOfficeConfig(fileId: number): Observable<OnlyOfficeConfig> {
+    return this.http.get<OnlyOfficeConfig>(
+      `${this.apiUrl}/files/onlyoffice/config/${fileId}`,
       this.getHttpOptionsWithHeaders()
     );
   }

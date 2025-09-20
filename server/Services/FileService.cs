@@ -63,6 +63,12 @@ public class FileService
             .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId);
     }
 
+    public async Task<FileEntity?> GetFileByIdAsync(int fileId)
+    {
+        return await _context.Files
+            .FirstOrDefaultAsync(f => f.Id == fileId);
+    }
+
     public async Task<FileEntity?> GetFileByTokenAsync(string token)
     {
         return await _context.Files
