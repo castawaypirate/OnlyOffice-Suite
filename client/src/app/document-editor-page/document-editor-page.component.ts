@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FileService, OnlyOfficeConfig } from '../services/file.service';
 
@@ -27,12 +27,11 @@ interface IConfig {
   styleUrls: ['./document-editor-page.component.css'],
   standalone: false
 })
-export class DocumentEditorPageComponent implements OnInit, OnDestroy {
+export class DocumentEditorPageComponent implements OnInit {
   fileId!: string;
   fileName = '';
   documentServerUrl = 'http://localhost:3131/';
   config: IConfig | null = null;
-  editorReady = false;
   editorKey = '';
 
   constructor(
@@ -43,25 +42,7 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.fileId = this.route.snapshot.paramMap.get('fileId') || '';
-    
-    // Reset state for fresh load
-    this.config = null;
-    this.editorReady = false;
-    this.fileName = '';
-    this.editorKey = '';
-    
-    // Small delay to ensure clean state
-    setTimeout(async () => {
-      await this.loadFileData();
-    }, 100);
-  }
-
-  ngOnDestroy() {
-    // Clean up state when component is destroyed
-    this.config = null;
-    this.editorReady = false;
-    this.editorKey = '';
-    console.log('🔧 DocumentEditor component destroyed, state cleaned');
+    await this.loadFileData();
   }
 
   private async loadFileData() {
@@ -157,7 +138,6 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   }
 
   onDocumentReady() {
-    this.editorReady = true;
     console.log('🔧 Document editor is ready for file:', this.fileId);
   }
 
