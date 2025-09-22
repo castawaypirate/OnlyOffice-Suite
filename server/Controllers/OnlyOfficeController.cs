@@ -1,140 +1,82 @@
 using Microsoft.AspNetCore.Mvc;
-using OnlyOfficeServer.Services;
+using OnlyOfficeServer.Managers;
+using OnlyOfficeServer.Repositories;
 
 namespace OnlyOfficeServer.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class OnlyOfficeController : BaseController
+public class OnlyOfficeController : ControllerBase
 {
-    private readonly FileService _fileService;
-
-    public OnlyOfficeController(FileService fileService)
-    {
-        _fileService = fileService;
-    }
-
     [HttpGet("download/{id}")]
     public async Task<IActionResult> DownloadFile(int id)
     {
-        try
+        // .NET Framework 4.5.6 style: Manual using statement for resource management
+        using (var repository = new OnlyOfficeRepository())
         {
-            var fileEntity = await _fileService.GetFileByIdAsync(id);
-            
-            if (fileEntity == null)
+            try
             {
-                return NotFound(new { message = "File not found" });
+                var manager = new OnlyOfficeManager(repository);
+                var fileResult = await manager.GetFileForDownloadAsync(id);
+                
+                return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
             }
-
-            if (!System.IO.File.Exists(fileEntity.FilePath))
+            catch (FileNotFoundException ex)
             {
-                return NotFound(new { message = "File not found on disk" });
+                return NotFound(new { message = ex.Message });
             }
-
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(fileEntity.FilePath);
-            var contentType = GetContentType(fileEntity.OriginalName);
-
-            return File(fileBytes, contentType, fileEntity.OriginalName);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "File download failed", error = ex.Message });
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "File download failed", error = ex.Message });
+            }
         }
     }
 
     [HttpGet("config/{id}")]
     public async Task<IActionResult> GetConfig(int id)
     {
-        try
+        // .NET Framework 4.5.6 style: Manual using statement for resource management
+        using (var repository = new OnlyOfficeRepository())
         {
-            // OnlyOffice config requested
-            
-            var fileEntity = await _fileService.GetFileByIdAsync(id);
-            
-            if (fileEntity == null)
+            try
             {
-                // File not found
-                return NotFound(new { message = "File not found" });
-            }
-
-            // File found
-
-            if (!System.IO.File.Exists(fileEntity.FilePath))
-            {
-                // File not found on disk
-                return NotFound(new { message = "File not found on disk" });
-            }
-
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            // Base URL determined
-            
-            var config = new
-            {
-                document = new
+                var manager = new OnlyOfficeManager(repository);
+                var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                var config = await manager.GetConfigAsync(id, baseUrl);
+                
+                // Convert business result to API response format
+                var response = new
                 {
-                    fileType = GetFileExtension(fileEntity.OriginalName),
-                    key = $"file-{fileEntity.Id}-{DateTime.UtcNow:yyyyMMddHHmmssffff}",
-                    title = fileEntity.OriginalName,
-                    url = $"{baseUrl}/api/onlyoffice/download/{fileEntity.Id}",
-                    permissions = new
+                    document = new
                     {
-                        edit = true,
-                        download = true,
-                        print = true
+                        fileType = config.Document.FileType,
+                        key = config.Document.Key,
+                        title = config.Document.Title,
+                        url = config.Document.Url,
+                        permissions = new
+                        {
+                            edit = config.Document.Permissions.Edit,
+                            download = config.Document.Permissions.Download,
+                            print = config.Document.Permissions.Print
+                        }
+                    },
+                    documentType = config.DocumentType,
+                    editorConfig = new
+                    {
+                        mode = config.EditorConfig.Mode
                     }
-                },
-                documentType = GetDocumentType(fileEntity.OriginalName),
-                editorConfig = new
-                {
-                    mode = "edit"
-                }
-            };
+                };
 
-            // Config generated successfully
-
-            return Ok(config);
+                return Ok(response);
+            }
+            catch (FileNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Config generation failed", error = ex.Message });
+            }
         }
-        catch (Exception ex)
-        {
-            // Config generation failed
-            return StatusCode(500, new { message = "Config generation failed", error = ex.Message });
-        }
-    }
-
-    private string GetContentType(string fileName)
-    {
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        return extension switch
-        {
-            ".pdf" => "application/pdf",
-            ".doc" => "application/msword",
-            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".xls" => "application/vnd.ms-excel",
-            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".ppt" => "application/vnd.ms-powerpoint",
-            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            ".txt" => "text/plain",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            _ => "application/octet-stream"
-        };
-    }
-
-    private string GetFileExtension(string fileName)
-    {
-        return Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
-    }
-
-    private string GetDocumentType(string fileName)
-    {
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        return extension switch
-        {
-            ".doc" or ".docx" => "word",
-            ".xls" or ".xlsx" => "cell",
-            ".ppt" or ".pptx" => "slide",
-            _ => "word"
-        };
     }
 }

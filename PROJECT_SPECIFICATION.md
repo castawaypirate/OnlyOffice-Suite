@@ -3,6 +3,8 @@
 ## Project Overview
 A proof-of-concept web application that integrates OnlyOffice Document Server for collaborative document editing. The application provides secure file management and session-based authentication.
 
+**Note**: This is a test project to evaluate OnlyOffice integration patterns for later implementation in a legacy application using .NET Framework 4.5.6 and Angular 17+, which follows the Manager-Repository design pattern.
+
 ## Core Features
 1. **Authentication System**: Simple username/password login with server-side sessions
 2. **File Management**: Upload, list, and download files with user-specific access control
