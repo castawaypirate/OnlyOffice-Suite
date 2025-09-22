@@ -16,7 +16,10 @@ public class OnlyOfficeController : ControllerBase
         {
             try
             {
-                var manager = new OnlyOfficeManager(repository);
+                // Get configuration from appsettings (in .NET Framework, this would be from DI container or config manager)
+                var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+                
+                var manager = new OnlyOfficeManager(repository, configuration!);
                 var fileResult = await manager.GetFileForDownloadAsync(id);
                 
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
@@ -40,11 +43,14 @@ public class OnlyOfficeController : ControllerBase
         {
             try
             {
-                var manager = new OnlyOfficeManager(repository);
+                // Get configuration from appsettings (in .NET Framework, this would be from DI container or config manager)
+                var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+                
+                var manager = new OnlyOfficeManager(repository, configuration!);
                 var baseUrl = $"{Request.Scheme}://{Request.Host}";
                 var config = await manager.GetConfigAsync(id, baseUrl);
                 
-                // Convert business result to API response format
+                // Convert business result to API response format (now includes JWT token)
                 var response = new
                 {
                     document = new
@@ -64,7 +70,8 @@ public class OnlyOfficeController : ControllerBase
                     editorConfig = new
                     {
                         mode = config.EditorConfig.Mode
-                    }
+                    },
+                    token = config.Token // JWT token generated in backend
                 };
 
                 return Ok(response);
@@ -72,6 +79,10 @@ public class OnlyOfficeController : ControllerBase
             catch (FileNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(500, new { message = "Configuration error", error = ex.Message });
             }
             catch (Exception ex)
             {

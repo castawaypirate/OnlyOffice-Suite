@@ -40,28 +40,26 @@ export class DocumentEditorPageComponent implements OnInit {
     private fileService: FileService
   ) {}
 
-  async ngOnInit() {
+  ngOnInit() {
     this.fileId = this.route.snapshot.paramMap.get('fileId') || '';
-    await this.loadFileData();
+    this.loadFileData();
   }
 
-  private async loadFileData() {
+  private loadFileData() {
     try {
       const fileIdNum = parseInt(this.fileId, 10);
       
       this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
-        next: async (backendConfig) => {
-          // Convert backend config to IConfig format
+        next: (backendConfig) => {
+          // Backend now returns complete config with JWT token
           this.config = {
             document: backendConfig.document,
             documentType: backendConfig.documentType,
-            editorConfig: backendConfig.editorConfig
+            editorConfig: backendConfig.editorConfig,
+            token: backendConfig.token // JWT token from backend
           };
           
           this.fileName = backendConfig.document.title;
-          
-          // Generate JWT token from backend config
-          this.config.token = await this.generateJWT(this.config);
           
           // Generate unique editor key to force recreation
           this.editorKey = `editor-${this.fileId}-${this.config.document.key}-${Date.now()}`;
@@ -78,50 +76,6 @@ export class DocumentEditorPageComponent implements OnInit {
   }
 
 
-  private async generateJWT(config: IConfig): Promise<string> {
-    const secret = '1Z8ezN1VlhBy95axTeD6yIi51PZGGmyk';
-    const token = await this.createJWT(config, secret);
-    return token;
-  }
-
-  private async createJWT(payload: IConfig, secret: string): Promise<string> {
-    const header = {
-      alg: 'HS256',
-      typ: 'JWT'
-    };
-
-    const base64UrlEncode = (str: string): string => {
-      return btoa(str)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, '');
-    };
-
-    const encodedHeader = base64UrlEncode(JSON.stringify(header));
-    const encodedPayload = base64UrlEncode(JSON.stringify(payload));
-    const message = `${encodedHeader}.${encodedPayload}`;
-
-    const encoder = new TextEncoder();
-    const secretKey = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-
-    const signature = await crypto.subtle.sign(
-      'HMAC',
-      secretKey,
-      encoder.encode(message)
-    );
-
-    const signatureArray = new Uint8Array(signature);
-    const signatureString = String.fromCharCode(...signatureArray);
-    const encodedSignature = base64UrlEncode(signatureString);
-
-    return `${message}.${encodedSignature}`;
-  }
 
   goBack() {
     this.router.navigate(['/files']);

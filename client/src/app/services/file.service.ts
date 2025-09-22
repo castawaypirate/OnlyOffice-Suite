@@ -36,6 +36,7 @@ export interface OnlyOfficeConfig {
   editorConfig: {
     mode: string;
   };
+  token: string;
 }
 
 @Injectable({

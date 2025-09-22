@@ -189,6 +189,11 @@ OnlyOffice-Suite/
 - Audit logging
 - File type validation and virus scanning
 
+## Technical Debt / Future Refactoring
+- **Configuration Management**: Create dedicated `OnlyOfficeSettings` class instead of reading config directly in managers
+- **JWT Service**: Extract JWT generation into separate service class for better separation of concerns
+- **Authentication Strategy**: Implement proper authentication for OnlyOffice controller endpoints
+
 ---
 
 ## Changelog

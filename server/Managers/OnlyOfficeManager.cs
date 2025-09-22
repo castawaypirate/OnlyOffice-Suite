@@ -1,15 +1,21 @@
 using OnlyOfficeServer.Models;
 using OnlyOfficeServer.Repositories;
+using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace OnlyOfficeServer.Managers;
 
 public class OnlyOfficeManager
 {
     private readonly IOnlyOfficeRepository _repository;
+    private readonly IConfiguration _configuration;
 
-    public OnlyOfficeManager(IOnlyOfficeRepository repository)
+    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
 
     public async Task<OnlyOfficeConfigResult> GetConfigAsync(int fileId, string baseUrl)
@@ -50,6 +56,9 @@ public class OnlyOfficeManager
             }
         };
 
+        // Generate JWT token for the complete config
+        config.Token = GenerateJwtToken(config);
+
         return config;
     }
 
@@ -78,6 +87,69 @@ public class OnlyOfficeManager
             ContentType = contentType,
             FileName = fileEntity.OriginalName
         };
+    }
+
+    // JWT generation using .NET Framework 4.5.6 compatible methods
+    private string GenerateJwtToken(OnlyOfficeConfigResult config)
+    {
+        var jwtSecret = _configuration["OnlyOffice:JwtSecret"];
+        if (string.IsNullOrEmpty(jwtSecret))
+        {
+            throw new InvalidOperationException("OnlyOffice JWT secret not configured");
+        }
+
+        // Create JWT payload (same as what was done in Angular)
+        var payload = new
+        {
+            document = new
+            {
+                fileType = config.Document.FileType,
+                key = config.Document.Key,
+                title = config.Document.Title,
+                url = config.Document.Url,
+                permissions = new
+                {
+                    edit = config.Document.Permissions.Edit,
+                    download = config.Document.Permissions.Download,
+                    print = config.Document.Permissions.Print
+                }
+            },
+            documentType = config.DocumentType,
+            editorConfig = new
+            {
+                mode = config.EditorConfig.Mode
+            }
+        };
+
+        return CreateJwt(payload, jwtSecret);
+    }
+
+    private string CreateJwt(object payload, string secret)
+    {
+        // JWT Header
+        var header = new { alg = "HS256", typ = "JWT" };
+
+        // Encode header and payload
+        var encodedHeader = Base64UrlEncode(JsonSerializer.Serialize(header));
+        var encodedPayload = Base64UrlEncode(JsonSerializer.Serialize(payload));
+        var message = $"{encodedHeader}.{encodedPayload}";
+
+        // Create signature using HMACSHA256 (.NET Framework 4.5.6 compatible)
+        using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+        {
+            var signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+            var base64Signature = Convert.ToBase64String(signatureBytes);
+            var encodedSignature = base64Signature.Replace('+', '-').Replace('/', '_').Replace("=", "");
+            
+            return $"{message}.{encodedSignature}";
+        }
+    }
+
+    private string Base64UrlEncode(string input)
+    {
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var base64 = Convert.ToBase64String(bytes);
+        return base64.Replace('+', '-').Replace('/', '_').Replace("=", "");
     }
 
     // Business logic helper methods
@@ -131,6 +203,7 @@ public class OnlyOfficeConfigResult
     public DocumentConfig Document { get; set; } = null!;
     public string DocumentType { get; set; } = string.Empty;
     public EditorConfig EditorConfig { get; set; } = null!;
+    public string Token { get; set; } = string.Empty;
 }
 
 public class DocumentConfig
