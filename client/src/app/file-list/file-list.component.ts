@@ -67,8 +67,8 @@ export class FileListComponent implements OnInit {
     this.errorMessage = '';
 
     this.fileService.uploadFile(this.selectedFile).subscribe({
-      next: (response) => {
-        console.log('File uploaded successfully:', response);
+      next: () => {
+        // File uploaded successfully
         this.selectedFile = null;
         this.loadFiles(); // Reload the file list
       },
@@ -90,8 +90,8 @@ export class FileListComponent implements OnInit {
     }
 
     this.fileService.deleteFile(file.id).subscribe({
-      next: (response) => {
-        console.log('File deleted successfully:', response);
+      next: () => {
+        // File deleted successfully
         this.loadFiles(); // Reload the file list
       },
       error: (error) => {
@@ -108,7 +108,7 @@ export class FileListComponent implements OnInit {
   onLogout() {
     this.authService.logout().subscribe({
       next: () => {
-        console.log('Logout successful');
+        // Logout successful
         this.router.navigate(['/login']);
       },
       error: (error) => {

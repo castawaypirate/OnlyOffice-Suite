@@ -98,7 +98,7 @@ export class FileService {
 
   getOnlyOfficeConfig(fileId: number): Observable<OnlyOfficeConfig> {
     return this.http.get<OnlyOfficeConfig>(
-      `${this.apiUrl}/files/onlyoffice/config/${fileId}`,
+      `${this.apiUrl}/onlyoffice/config/${fileId}`,
       this.getHttpOptionsWithHeaders()
     );
   }

@@ -51,8 +51,6 @@ export class DocumentEditorPageComponent implements OnInit {
       
       this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
         next: async (backendConfig) => {
-          console.log('🔧 Backend config received:', backendConfig);
-          
           // Convert backend config to IConfig format
           this.config = {
             document: backendConfig.document,
@@ -60,21 +58,16 @@ export class DocumentEditorPageComponent implements OnInit {
             editorConfig: backendConfig.editorConfig
           };
           
-          console.log('🔧 Converted config for JWT:', this.config);
-          
           this.fileName = backendConfig.document.title;
           
           // Generate JWT token from backend config
-          console.log('🔧 Generating JWT token...');
           this.config.token = await this.generateJWT(this.config);
-          console.log('🔧 Generated JWT token:', this.config.token);
-          console.log('🔧 Final config with token:', this.config);
           
           // Generate unique editor key to force recreation
           this.editorKey = `editor-${this.fileId}-${this.config.document.key}-${Date.now()}`;
         },
         error: (error) => {
-          console.error('❌ Failed to load OnlyOffice config:', error);
+          console.error('Failed to load OnlyOffice config:', error);
           this.fileName = 'Error loading document';
         }
       });
@@ -87,10 +80,7 @@ export class DocumentEditorPageComponent implements OnInit {
 
   private async generateJWT(config: IConfig): Promise<string> {
     const secret = '1Z8ezN1VlhBy95axTeD6yIi51PZGGmyk';
-    console.log('🔧 JWT Secret:', secret);
-    console.log('🔧 Config for JWT generation:', JSON.stringify(config, null, 2));
     const token = await this.createJWT(config, secret);
-    console.log('🔧 Raw JWT token generated:', token);
     return token;
   }
 

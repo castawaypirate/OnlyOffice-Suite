@@ -30,8 +30,8 @@ export class LoginComponent {
 
     this.authService.login({ username: this.username, password: this.password })
       .subscribe({
-        next: (response) => {
-          console.log('Login successful:', response);
+        next: () => {
+          // Login successful
           this.router.navigate(['/files']);
         },
         error: (error) => {

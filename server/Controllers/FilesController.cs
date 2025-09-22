@@ -145,92 +145,6 @@ public class FilesController : BaseController
         }
     }
 
-    [HttpGet("onlyoffice/download/{id}")]
-    public async Task<IActionResult> OnlyOfficeDownload(int id)
-    {
-        try
-        {
-            var fileEntity = await _fileService.GetFileByIdAsync(id);
-            
-            if (fileEntity == null)
-            {
-                return NotFound(new { message = "File not found" });
-            }
-
-            if (!System.IO.File.Exists(fileEntity.FilePath))
-            {
-                return NotFound(new { message = "File not found on disk" });
-            }
-
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(fileEntity.FilePath);
-            var contentType = GetContentType(fileEntity.OriginalName);
-
-            return File(fileBytes, contentType, fileEntity.OriginalName);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "File download failed", error = ex.Message });
-        }
-    }
-
-    [HttpGet("onlyoffice/config/{id}")]
-    public async Task<IActionResult> OnlyOfficeConfig(int id)
-    {
-        try
-        {
-            Console.WriteLine($"🔧 OnlyOffice config requested for file ID: {id}");
-            
-            var fileEntity = await _fileService.GetFileByIdAsync(id);
-            
-            if (fileEntity == null)
-            {
-                Console.WriteLine($"❌ File not found with ID: {id}");
-                return NotFound(new { message = "File not found" });
-            }
-
-            Console.WriteLine($"🔧 File found: {fileEntity.OriginalName}, Path: {fileEntity.FilePath}");
-
-            if (!System.IO.File.Exists(fileEntity.FilePath))
-            {
-                Console.WriteLine($"❌ File not found on disk: {fileEntity.FilePath}");
-                return NotFound(new { message = "File not found on disk" });
-            }
-
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            Console.WriteLine($"🔧 Base URL: {baseUrl}");
-            
-            var config = new
-            {
-                document = new
-                {
-                    fileType = GetFileExtension(fileEntity.OriginalName),
-                    key = $"file-{fileEntity.Id}-{DateTime.UtcNow:yyyyMMddHHmmssffff}",
-                    title = fileEntity.OriginalName,
-                    url = $"{baseUrl}/api/files/onlyoffice/download/{fileEntity.Id}",
-                    permissions = new
-                    {
-                        edit = true,
-                        download = true,
-                        print = true
-                    }
-                },
-                documentType = GetDocumentType(fileEntity.OriginalName),
-                editorConfig = new
-                {
-                    mode = "edit"
-                }
-            };
-
-            Console.WriteLine($"🔧 Generated config: {System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true })}");
-
-            return Ok(config);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Config generation failed: {ex.Message}");
-            return StatusCode(500, new { message = "Config generation failed", error = ex.Message });
-        }
-    }
 
     private string GetContentType(string fileName)
     {
@@ -249,23 +163,6 @@ public class FilesController : BaseController
             ".png" => "image/png",
             ".gif" => "image/gif",
             _ => "application/octet-stream"
-        };
-    }
-
-    private string GetFileExtension(string fileName)
-    {
-        return Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
-    }
-
-    private string GetDocumentType(string fileName)
-    {
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        return extension switch
-        {
-            ".doc" or ".docx" => "word",
-            ".xls" or ".xlsx" => "cell",
-            ".ppt" or ".pptx" => "slide",
-            _ => "word"
         };
     }
 }

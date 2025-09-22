@@ -65,3 +65,7 @@ lerna-debug.log*
 .DS_Store
 Thumbs.db
 server/uploads/*
+
+# SQLite database files
+*.db-shm
+*.db-wal
