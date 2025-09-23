@@ -3,7 +3,7 @@ using OnlyOfficeServer.Repositories;
 using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace OnlyOfficeServer.Managers;
 
@@ -89,7 +89,7 @@ public class OnlyOfficeManager
         };
     }
 
-    // JWT generation using .NET Framework 4.5.6 compatible methods
+    // JWT generation using .NET Framework 4.5.6 compatible methods with Newtonsoft.Json
     private string GenerateJwtToken(OnlyOfficeConfigResult config)
     {
         var jwtSecret = _configuration["OnlyOffice:JwtSecret"];
@@ -129,9 +129,17 @@ public class OnlyOfficeManager
         // JWT Header
         var header = new { alg = "HS256", typ = "JWT" };
 
-        // Encode header and payload
-        var encodedHeader = Base64UrlEncode(JsonSerializer.Serialize(header));
-        var encodedPayload = Base64UrlEncode(JsonSerializer.Serialize(payload));
+        // Create JsonSerializerSettings for .NET Framework 4.5.6 compatibility
+        var jsonSettings = new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore,
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            Formatting = Formatting.None
+        };
+
+        // Encode header and payload using Newtonsoft.Json
+        var encodedHeader = Base64UrlEncode(JsonConvert.SerializeObject(header, jsonSettings));
+        var encodedPayload = Base64UrlEncode(JsonConvert.SerializeObject(payload, jsonSettings));
         var message = $"{encodedHeader}.{encodedPayload}";
 
         // Create signature using HMACSHA256 (.NET Framework 4.5.6 compatible)
