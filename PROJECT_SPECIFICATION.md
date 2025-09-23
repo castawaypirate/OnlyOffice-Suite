@@ -98,8 +98,13 @@ public class FileEntity
 ## OnlyOffice Integration
 
 ### Document Server Configuration
-- **URL**: `http://localhost:3131/` (configurable)
-- **Authentication**: JWT tokens generated server-side
+
+**OnlyOffice Document Server Setup**:
+- **This POC Environment**: Self-hosted OnlyOffice Document Server on Linux (native installation, no Docker) - Port 3131
+- **Target Legacy Environment**: Self-hosted OnlyOffice Document Server on Windows (native installation, no Docker) - Port 80
+- **Server URL**: `http://localhost:3131/` for POC, `http://localhost/` for legacy (configurable in appsettings.json)
+- **Installation Type**: Both environments use native OnlyOffice installations without containerization
+- **Authentication**: JWT tokens generated server-side using Newtonsoft.Json
 - **File Access**: Via direct file serving
 - **Save Callback**: Documents saved back to file system
 
