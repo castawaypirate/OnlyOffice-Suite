@@ -49,7 +49,7 @@ export class DocumentEditorPageComponent implements OnInit {
     try {
       const fileIdNum = parseInt(this.fileId, 10);
       
-      this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
+      this.fileService.getOnlyOfficeConfigDataContract(fileIdNum).subscribe({
         next: (backendConfig) => {
           // Backend now returns complete config with JWT token
           this.config = {
@@ -58,6 +58,8 @@ export class DocumentEditorPageComponent implements OnInit {
             editorConfig: backendConfig.editorConfig,
             token: backendConfig.token // JWT token from backend
           };
+
+          console.log('token', this.config.token);
           
           this.fileName = backendConfig.document.title;
           

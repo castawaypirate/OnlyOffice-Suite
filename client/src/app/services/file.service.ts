@@ -104,6 +104,35 @@ export class FileService {
     );
   }
 
+  getOnlyOfficeConfigHardcoded(fileId: number): Observable<OnlyOfficeConfig> {
+    return this.http.get<OnlyOfficeConfig>(
+      `${this.apiUrl}/onlyoffice/config-hardcoded/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
+  getOnlyOfficeConfigTypeScript(fileId: number): Observable<OnlyOfficeConfig> {
+    return this.http.get<OnlyOfficeConfig>(
+      `${this.apiUrl}/onlyoffice/config-typescript/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
+  getOnlyOfficeConfigManual(fileId: number): Observable<OnlyOfficeConfig> {
+    return this.http.get<OnlyOfficeConfig>(
+      `${this.apiUrl}/onlyoffice/config-manual/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
+
+  getOnlyOfficeConfigDataContract(fileId: number): Observable<OnlyOfficeConfig> {
+    return this.http.get<OnlyOfficeConfig>(
+      `${this.apiUrl}/onlyoffice/config-datacontract/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
   // Helper method to trigger file download in browser
   downloadFileAsBlob(fileId: number, fileName: string): void {
     this.downloadFile(fileId).subscribe({
