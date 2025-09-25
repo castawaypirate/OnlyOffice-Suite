@@ -2,7 +2,12 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnlyOfficeServer", "server\OnlyOfficeServer.csproj", "{89FE73CA-0997-026F-2B69-BFBAC05C269B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OnlyOfficeServer", "server\OnlyOfficeServer.csproj", "{89FE73CA-0997-026F-2B69-BFBAC05C269B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{12345678-1234-5678-9ABC-123456789012} = {12345678-1234-5678-9ABC-123456789012}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnlyOfficeServerFramework", "server-framework\OnlyOfficeServerFramework.csproj", "{12345678-1234-5678-9ABC-123456789012}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +19,10 @@ Global
 		{89FE73CA-0997-026F-2B69-BFBAC05C269B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{89FE73CA-0997-026F-2B69-BFBAC05C269B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{89FE73CA-0997-026F-2B69-BFBAC05C269B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12345678-1234-5678-9ABC-123456789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12345678-1234-5678-9ABC-123456789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12345678-1234-5678-9ABC-123456789012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12345678-1234-5678-9ABC-123456789012}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
