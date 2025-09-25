@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService, AuthStatus } from '../services/auth.service';
-import { FileService, FileItem } from '../services/file.service';
+import { FileService } from '../services/file.service';
+import { FileItem } from '../models';
 import { Observable } from 'rxjs';
 
 @Component({

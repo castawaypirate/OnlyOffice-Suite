@@ -1,11 +1,12 @@
 import { Component, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { AppRoutingModule } from './app-routing.module';
-import { OnlyOfficeModule } from './onlyoffice.module';
-import { AuthModule } from './auth/auth.module';
-import { FileManagementModule } from './file-management/file-management.module';
-import { DocumentEditorModule } from './document-editor/document-editor.module';
+import { DocumentEditorModule } from '@onlyoffice/document-editor-angular';
+import { DocumentEditorPageComponent } from './document-editor-page/document-editor-page.component';
+import { LoginComponent } from './login/login.component';
+import { FileListComponent } from './file-list/file-list.component';
 
 @Component({
   selector: 'app-root',
@@ -16,17 +17,21 @@ import { DocumentEditorModule } from './document-editor/document-editor.module';
 export class App {}
 
 @NgModule({
-  declarations: [App],
+  declarations: [
+    App,
+    DocumentEditorPageComponent,
+    LoginComponent,
+    FileListComponent
+  ],
   imports: [
     BrowserModule,
-    HttpClientModule,
-    AppRoutingModule, 
-    OnlyOfficeModule,
-    AuthModule,
-    FileManagementModule,
+    FormsModule,
+    AppRoutingModule,
     DocumentEditorModule
   ],
-  providers: [],
+  providers: [
+    provideHttpClient()
+  ],
   bootstrap: [App]
 })
 export class AppModule { }
