@@ -47,6 +47,13 @@ server/*.user
 server/.vs/
 server/packages/
 
+# Server Framework (only exists on server-framework branch)
+server-framework/
+
+# Visual Studio generated folders
+.vs/
+packages/
+
 # Environment files
 .env
 .env.local
