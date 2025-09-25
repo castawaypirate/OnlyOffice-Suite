@@ -1,25 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FileService, OnlyOfficeConfig } from '../services/file.service';
-
-interface IConfig {
-  document: {
-    fileType: string;
-    key: string;
-    title: string;
-    url: string;
-    permissions: {
-      edit: boolean;
-      download: boolean;
-      print: boolean;
-    };
-  };
-  documentType: string;
-  editorConfig: {
-    mode: string;
-  };
-  token?: string;
-}
+import { IConfig } from '@onlyoffice/document-editor-angular';
+import { FileService } from '../services/file.service';
+import { environment } from '../app.config';
 
 @Component({
   selector: 'app-document-editor-page',
@@ -30,7 +13,7 @@ interface IConfig {
 export class DocumentEditorPageComponent implements OnInit {
   fileId!: string;
   fileName = '';
-  documentServerUrl = 'http://localhost:3131/';
+  documentServerUrl = environment.onlyOfficeServerUrl;
   config: IConfig | null = null;
   editorKey = '';
 
@@ -49,22 +32,17 @@ export class DocumentEditorPageComponent implements OnInit {
     try {
       const fileIdNum = parseInt(this.fileId, 10);
       
-      this.fileService.getOnlyOfficeConfigDataContract(fileIdNum).subscribe({
-        next: (backendConfig) => {
-          // Backend now returns complete config with JWT token
-          this.config = {
-            document: backendConfig.document,
-            documentType: backendConfig.documentType,
-            editorConfig: backendConfig.editorConfig,
-            token: backendConfig.token // JWT token from backend
-          };
+      this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
+        next: (backendConfig: IConfig) => {
+          // Backend already returns IConfig format
+          this.config = backendConfig;
 
           console.log('token', this.config.token);
-          
-          this.fileName = backendConfig.document.title;
-          
+
+          this.fileName = backendConfig.document?.title || 'Document';
+
           // Generate unique editor key to force recreation
-          this.editorKey = `editor-${this.fileId}-${this.config.document.key}-${Date.now()}`;
+          this.editorKey = `editor-${this.fileId}-${this.config.document?.key || 'unknown'}-${Date.now()}`;
         },
         error: (error) => {
           console.error('Failed to load OnlyOffice config:', error);

@@ -1,49 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
-export interface FileItem {
-  id: number;
-  name: string;
-  filename: string;
-  size: string;
-  uploadDate: Date;
-  token: string;
-}
-
-export interface UploadResponse {
-  id: number;
-  originalName: string;
-  filename: string;
-  size: string;
-  uploadedAt: Date;
-  message: string;
-}
-
-export interface OnlyOfficeConfig {
-  document: {
-    fileType: string;
-    key: string;
-    title: string;
-    url: string;
-    permissions: {
-      edit: boolean;
-      download: boolean;
-      print: boolean;
-    };
-  };
-  documentType: string;
-  editorConfig: {
-    mode: string;
-  };
-  token: string;
-}
+import { IConfig } from '@onlyoffice/document-editor-angular';
+import { FileItem, UploadResponse } from '../models';
+import { environment } from '../app.config';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FileService {
-  private readonly apiUrl = 'http://localhost:5142/api';
+  private readonly apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -97,41 +63,13 @@ export class FileService {
     );
   }
 
-  getOnlyOfficeConfig(fileId: number): Observable<OnlyOfficeConfig> {
-    return this.http.get<OnlyOfficeConfig>(
+  getOnlyOfficeConfig(fileId: number): Observable<IConfig> {
+    return this.http.get<IConfig>(
       `${this.apiUrl}/onlyoffice/config/${fileId}`,
       this.getHttpOptionsWithHeaders()
     );
   }
 
-  getOnlyOfficeConfigHardcoded(fileId: number): Observable<OnlyOfficeConfig> {
-    return this.http.get<OnlyOfficeConfig>(
-      `${this.apiUrl}/onlyoffice/config-hardcoded/${fileId}`,
-      this.getHttpOptionsWithHeaders()
-    );
-  }
-
-  getOnlyOfficeConfigTypeScript(fileId: number): Observable<OnlyOfficeConfig> {
-    return this.http.get<OnlyOfficeConfig>(
-      `${this.apiUrl}/onlyoffice/config-typescript/${fileId}`,
-      this.getHttpOptionsWithHeaders()
-    );
-  }
-
-  getOnlyOfficeConfigManual(fileId: number): Observable<OnlyOfficeConfig> {
-    return this.http.get<OnlyOfficeConfig>(
-      `${this.apiUrl}/onlyoffice/config-manual/${fileId}`,
-      this.getHttpOptionsWithHeaders()
-    );
-  }
-
-
-  getOnlyOfficeConfigDataContract(fileId: number): Observable<OnlyOfficeConfig> {
-    return this.http.get<OnlyOfficeConfig>(
-      `${this.apiUrl}/onlyoffice/config-datacontract/${fileId}`,
-      this.getHttpOptionsWithHeaders()
-    );
-  }
 
   // Helper method to trigger file download in browser
   downloadFileAsBlob(fileId: number, fileName: string): void {
