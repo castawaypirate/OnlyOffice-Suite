@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { IConfig } from '@onlyoffice/document-editor-angular';
-import { FileItem, UploadResponse } from '../models';
+import { FileItem, UploadResponse, IOnlyOfficeConfig } from '../models';
 import { environment } from '../app.config';
 
 @Injectable({
@@ -63,8 +63,8 @@ export class FileService {
     );
   }
 
-  getOnlyOfficeConfig(fileId: number): Observable<IConfig> {
-    return this.http.get<IConfig>(
+  getOnlyOfficeConfig(fileId: number): Observable<IOnlyOfficeConfig> {
+    return this.http.get<IOnlyOfficeConfig>(
       `${this.apiUrl}/onlyoffice/config/${fileId}`,
       this.getHttpOptionsWithHeaders()
     );

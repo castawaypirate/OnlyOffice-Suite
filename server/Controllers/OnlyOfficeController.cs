@@ -53,25 +53,29 @@ public class OnlyOfficeController : ControllerBase
                 // Convert business result to API response format (now includes JWT token)
                 var response = new
                 {
-                    document = new
+                    config = new 
                     {
-                        fileType = config.Document.FileType,
-                        key = config.Document.Key,
-                        title = config.Document.Title,
-                        url = config.Document.Url,
-                        permissions = new
+                        document = new
                         {
-                            edit = config.Document.Permissions.Edit,
-                            download = config.Document.Permissions.Download,
-                            print = config.Document.Permissions.Print
-                        }
+                            fileType = config.Document.FileType,
+                            key = config.Document.Key,
+                            title = config.Document.Title,
+                            url = config.Document.Url,
+                            permissions = new
+                            {
+                                edit = config.Document.Permissions.Edit,
+                                download = config.Document.Permissions.Download,
+                                print = config.Document.Permissions.Print
+                            }
+                        },
+                        documentType = config.DocumentType,
+                        editorConfig = new
+                        {
+                            mode = config.EditorConfig.Mode
+                        },
+                        token = config.Token,
                     },
-                    documentType = config.DocumentType,
-                    editorConfig = new
-                    {
-                        mode = config.EditorConfig.Mode
-                    },
-                    token = config.Token // JWT token generated in backend
+                    onlyOfficeServerUrl = config.OnlyOfficeServerUrl
                 };
 
                 return Ok(response);

@@ -9,6 +9,6 @@
   "OnlyOffice": {
     "DocumentServerUrl": "http://[::1]:3131/",
     "JwtSecret": "uE4N1ACTVq4bRsFQ52DE4pGqm3uomazw",
-    "HostUrl": "http://host.docker.internal:5142"
+    "HostUrl": "http://localhost:5142"
   }
 }

@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IConfig } from '@onlyoffice/document-editor-angular';
 import { FileService } from '../services/file.service';
-import { environment } from '../app.config';
+import { IOnlyOfficeConfig } from '../models';
 
 @Component({
   selector: 'app-document-editor-page',
@@ -13,7 +13,7 @@ import { environment } from '../app.config';
 export class DocumentEditorPageComponent implements OnInit {
   fileId!: string;
   fileName = '';
-  documentServerUrl = environment.onlyOfficeServerUrl;
+  documentServerUrl = '';
   config: IConfig | null = null;
   editorKey = '';
 
@@ -33,13 +33,15 @@ export class DocumentEditorPageComponent implements OnInit {
       const fileIdNum = parseInt(this.fileId, 10);
       
       this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
-        next: (backendConfig: IConfig) => {
-          // Backend already returns IConfig format
-          this.config = backendConfig;
+        next: (backendConfig: IOnlyOfficeConfig) => {
+          // Backend returns nested config with onlyOfficeServerUrl
+          this.config = backendConfig.config;
+          this.documentServerUrl = backendConfig.onlyOfficeServerUrl || 'http://localhost:3131/';
 
           console.log('token', this.config.token);
+          console.log('onlyOfficeServerUrl', this.documentServerUrl);
 
-          this.fileName = backendConfig.document?.title || 'Document';
+          this.fileName = backendConfig.config.document?.title || 'Document';
 
           // Generate unique editor key to force recreation
           this.editorKey = `editor-${this.fileId}-${this.config.document?.key || 'unknown'}-${Date.now()}`;
