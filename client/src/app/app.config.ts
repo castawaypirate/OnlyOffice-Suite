@@ -2,8 +2,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChang
 
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:5142/api',
-  onlyOfficeServerUrl: 'http://localhost:3131/'
+  apiUrl: 'http://localhost:5142/api'
 };
 
 export const appConfig: ApplicationConfig = {

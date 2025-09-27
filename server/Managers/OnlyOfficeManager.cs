@@ -23,7 +23,7 @@ public class OnlyOfficeManager
     {
         // Business logic: Get file and validate
         var fileEntity = await _repository.GetFileByIdAsync(fileId);
-        
+
         if (fileEntity == null)
         {
             throw new FileNotFoundException($"File with ID {fileId} not found");
@@ -34,6 +34,10 @@ public class OnlyOfficeManager
             throw new FileNotFoundException($"Physical file not found: {fileEntity.FilePath}");
         }
 
+        // Use configured host URL for Docker compatibility, fallback to baseUrl
+        var hostUrl = _configuration["OnlyOffice:HostUrl"] ?? baseUrl;
+        var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
+
         // Business logic: Build OnlyOffice configuration
         var config = new OnlyOfficeConfigResult
         {
@@ -42,7 +46,7 @@ public class OnlyOfficeManager
                 FileType = GetFileExtension(fileEntity.OriginalName),
                 Key = GenerateDocumentKey(fileEntity),
                 Title = fileEntity.OriginalName,
-                Url = $"{baseUrl}/api/onlyoffice/download/{fileEntity.Id}",
+                Url = $"{hostUrl}/api/onlyoffice/download/{fileEntity.Id}",
                 Permissions = new PermissionsConfig
                 {
                     Edit = true,
@@ -54,7 +58,8 @@ public class OnlyOfficeManager
             EditorConfig = new EditorConfig
             {
                 Mode = "edit"
-            }
+            },
+            OnlyOfficeServerUrl = documentServerUrl
         };
 
         // Generate JWT token for the complete config
@@ -218,6 +223,7 @@ public class OnlyOfficeConfigResult
     public string DocumentType { get; set; } = string.Empty;
     public EditorConfig EditorConfig { get; set; } = null!;
     public string Token { get; set; } = string.Empty;
+    public string OnlyOfficeServerUrl { get; set; } = string.Empty;
 }
 
 public class DocumentConfig
