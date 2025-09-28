@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OnlyOfficeServer.Data;
 using OnlyOfficeServer.Models;
+using OnlyOfficeServer.Services;
 
 namespace OnlyOfficeServer.Controllers;
 
@@ -10,12 +11,14 @@ namespace OnlyOfficeServer.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly FileService _fileService;
     private const string UserIdSessionKey = "UserId";
     private const string UsernameSessionKey = "Username";
 
-    public AuthController(AppDbContext context)
+    public AuthController(AppDbContext context, FileService fileService)
     {
         _context = context;
+        _fileService = fileService;
     }
 
     [HttpPost("login")]
@@ -48,6 +51,15 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
+        // Get current user ID before clearing session
+        var userId = HttpContext.Session.GetInt32(UserIdSessionKey);
+
+        // Clean up temp files for this user
+        if (userId.HasValue)
+        {
+            _fileService.CleanupUserTempFiles(userId.Value);
+        }
+
         HttpContext.Session.Clear();
         return Ok(new { message = "Logout successful" });
     }

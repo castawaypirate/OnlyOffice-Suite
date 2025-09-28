@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
     
     public DbSet<User> Users { get; set; }
     public DbSet<FileEntity> Files { get; set; }
+    public DbSet<Installation> Installations { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,12 +29,21 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.Token).IsUnique();
             entity.Property(e => e.UploadedAt).HasDefaultValueSql("datetime('now')");
-            
+
             // Configure relationship
             entity.HasOne(e => e.User)
                   .WithMany(u => u.Files)
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure Installation entity
+        modelBuilder.Entity<Installation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ApplicationId).IsUnique();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("datetime('now')");
         });
     }
 }

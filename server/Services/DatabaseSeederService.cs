@@ -32,5 +32,24 @@ public static class DatabaseSeederService
 
         context.Users.AddRange(users);
         context.SaveChanges();
+
+        // Check if installations already exist
+        if (!context.Installations.Any())
+        {
+            // Create installation record
+            var installation = new Installation
+            {
+                ApplicationId = 1,
+                Ip = "localhost",
+                FullUrl = "http://localhost:5142",
+                DomainName = "localhost",
+                Description = "Local Development Installation",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            context.Installations.Add(installation);
+            context.SaveChanges();
+        }
     }
 }

@@ -33,35 +33,61 @@
       <thead>
         <tr>
           <th>File Name</th>
+          <th>Status</th>
           <th>Upload Date</th>
           <th>Size</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let file of files">
+        <tr *ngFor="let file of files" [class.temp-file]="file.isTemporary">
           <td>{{ file.name }}</td>
+          <td>
+            <span *ngIf="file.isTemporary" class="status-badge temp">📋 Temporary</span>
+            <span *ngIf="!file.isTemporary" class="status-badge saved">✅ Saved</span>
+          </td>
           <td>{{ file.uploadDate | date:'short' }}</td>
           <td>{{ file.size }}</td>
           <td class="actions">
-            <button 
-              class="download-btn" 
-              (click)="downloadFile(file)"
-              title="Download file">
-              ⬇️ Download
-            </button>
-            <button 
-              class="open-btn" 
-              (click)="openDocument(file.id)"
-              title="Open in editor">
-              📝 Open
-            </button>
-            <button 
-              class="delete-btn" 
-              (click)="deleteFile(file)"
-              title="Delete file">
-              🗑️ Delete
-            </button>
+            <!-- Buttons for temporary files -->
+            <ng-container *ngIf="file.isTemporary">
+              <button
+                class="save-btn"
+                (click)="saveFile(file)"
+                [disabled]="isLoading"
+                title="Save file permanently">
+                💾 Save
+              </button>
+              <button
+                class="delete-btn"
+                (click)="deleteFile(file)"
+                title="Delete temporary file">
+                🗑️ Delete
+              </button>
+            </ng-container>
+
+            <!-- Buttons for saved files -->
+            <ng-container *ngIf="!file.isTemporary">
+              <button
+                class="download-btn"
+                (click)="downloadFile(file)"
+                title="Download file">
+                ⬇️ Download
+              </button>
+              <button
+                *ngIf="onlyOfficeEnabled"
+                class="open-btn"
+                (click)="openDocument(file.id)"
+                title="Open in editor">
+                📝 Edit
+              </button>
+              <button
+                class="delete-btn"
+                (click)="deleteFile(file)"
+                title="Delete file">
+                🗑️ Delete
+              </button>
+            </ng-container>
           </td>
         </tr>
       </tbody>
