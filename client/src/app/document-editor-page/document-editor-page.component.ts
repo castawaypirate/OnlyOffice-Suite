@@ -36,10 +36,7 @@ export class DocumentEditorPageComponent implements OnInit {
         next: (backendConfig: IOnlyOfficeConfig) => {
           // Backend returns nested config with onlyOfficeServerUrl
           this.config = backendConfig.config;
-          this.documentServerUrl = backendConfig.onlyOfficeServerUrl || 'http://localhost:3131/';
-
-          console.log('token', this.config.token);
-          console.log('onlyOfficeServerUrl', this.documentServerUrl);
+          this.documentServerUrl = backendConfig.onlyOfficeServerUrl;
 
           this.fileName = backendConfig.config.document?.title || 'Document';
 

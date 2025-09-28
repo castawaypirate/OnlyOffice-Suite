@@ -20,6 +20,10 @@ builder.Services.AddSession(options =>
 // Add services
 builder.Services.AddScoped<FileService>();
 
+// Add repositories and managers
+builder.Services.AddScoped<IInstallationRepository, InstallationRepository>();
+builder.Services.AddScoped<InstallationManager>();
+
 // Add controllers
 builder.Services.AddControllers();
 

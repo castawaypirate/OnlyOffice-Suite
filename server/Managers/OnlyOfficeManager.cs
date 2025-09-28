@@ -5,6 +5,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using System.IO;
+using Microsoft.EntityFrameworkCore;
+using OnlyOfficeServer.Data;
 
 namespace OnlyOfficeServer.Managers;
 
@@ -12,11 +14,15 @@ public class OnlyOfficeManager
 {
     private readonly IOnlyOfficeRepository _repository;
     private readonly IConfiguration _configuration;
+    private readonly AppDbContext _context;
+    private readonly IInstallationRepository _installationRepository;
 
-    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration)
+    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context, IInstallationRepository installationRepository)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _installationRepository = installationRepository ?? throw new ArgumentNullException(nameof(installationRepository));
     }
 
     public async Task<OnlyOfficeConfigResult> GetConfigAsync(int fileId, string baseUrl)
@@ -212,6 +218,44 @@ public class OnlyOfficeManager
             ".gif" => "image/gif",
             _ => "application/octet-stream"
         };
+    }
+
+    // **Installation methods using AppDbContext (Approach 2)**
+    public async Task<string> GetApplicationUrlAsync(int applicationId)
+    {
+        var installation = await _context.Installations
+            .FirstOrDefaultAsync(i => i.ApplicationId == applicationId);
+
+        if (installation == null)
+        {
+            throw new InvalidOperationException($"Installation with ApplicationId '{applicationId}' not found in database");
+        }
+
+        return installation.FullUrl;
+    }
+
+    public async Task<Installation?> GetInstallationByApplicationIdAsync(int applicationId)
+    {
+        return await _context.Installations
+            .FirstOrDefaultAsync(i => i.ApplicationId == applicationId);
+    }
+
+    // **Installation methods using InstallationRepository (Approach 3)**
+    public async Task<string> GetApplicationUrlViaRepositoryAsync(int applicationId)
+    {
+        var installation = await _installationRepository.GetByApplicationIdAsync(applicationId);
+
+        if (installation == null)
+        {
+            throw new InvalidOperationException($"Installation with ApplicationId '{applicationId}' not found in database");
+        }
+
+        return installation.FullUrl;
+    }
+
+    public async Task<Installation?> GetInstallationByApplicationIdViaRepositoryAsync(int applicationId)
+    {
+        return await _installationRepository.GetByApplicationIdAsync(applicationId);
     }
 
 }
