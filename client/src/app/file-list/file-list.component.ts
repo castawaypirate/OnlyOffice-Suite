@@ -88,7 +88,8 @@ export class FileListComponent implements OnInit {
   }
 
   deleteFile(file: FileItem) {
-    if (!confirm(`Are you sure you want to delete "${file.name}"?`)) {
+    const fileType = file.isTemporary ? 'temporary file' : 'file';
+    if (!confirm(`Are you sure you want to delete "${file.name}" ${fileType}?`)) {
       return;
     }
 
@@ -104,8 +105,33 @@ export class FileListComponent implements OnInit {
     });
   }
 
-  openDocument(fileId: number) {
-    this.router.navigate(['/editor', fileId]);
+  saveFile(file: FileItem) {
+    if (!file.isTemporary || typeof file.id !== 'string') {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.fileService.saveFile(file.id).subscribe({
+      next: () => {
+        // File saved successfully
+        this.loadFiles(); // Reload the file list
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('File save failed:', error);
+        this.errorMessage = error.error?.message || 'File save failed. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  openDocument(fileId: number | string) {
+    // Only allow opening saved files (numeric IDs)
+    if (typeof fileId === 'number') {
+      this.router.navigate(['/editor', fileId]);
+    }
   }
 
   onLogout() {

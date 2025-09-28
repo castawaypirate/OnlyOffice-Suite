@@ -56,9 +56,17 @@ export class FileService {
     );
   }
 
-  deleteFile(fileId: number): Observable<{message: string}> {
+  deleteFile(fileId: number | string): Observable<{message: string}> {
     return this.http.delete<{message: string}>(
       `${this.apiUrl}/files/${fileId}`,
+      this.getHttpOptionsWithHeaders()
+    );
+  }
+
+  saveFile(tempId: string): Observable<UploadResponse> {
+    return this.http.post<UploadResponse>(
+      `${this.apiUrl}/files/${tempId}/save`,
+      {},
       this.getHttpOptionsWithHeaders()
     );
   }
@@ -72,7 +80,13 @@ export class FileService {
 
 
   // Helper method to trigger file download in browser
-  downloadFileAsBlob(fileId: number, fileName: string): void {
+  downloadFileAsBlob(fileId: number | string, fileName: string): void {
+    // Only allow downloads of saved files (numeric IDs)
+    if (typeof fileId !== 'number') {
+      console.error('Cannot download temporary files');
+      return;
+    }
+
     this.downloadFile(fileId).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
