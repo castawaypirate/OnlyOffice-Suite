@@ -50,7 +50,7 @@ public class OnlyOfficeManager
             Document = new DocumentConfig
             {
                 FileType = GetFileExtension(fileEntity.OriginalName),
-                Key = GenerateDocumentKey(fileEntity),
+                Key = fileEntity.Token,
                 Title = fileEntity.OriginalName,
                 Url = $"{hostUrl}/api/onlyoffice/download/{fileEntity.Id}",
                 Permissions = new PermissionsConfig
@@ -63,7 +63,8 @@ public class OnlyOfficeManager
             DocumentType = GetDocumentType(fileEntity.OriginalName),
             EditorConfig = new EditorConfig
             {
-                Mode = "edit"
+                Mode = "edit",
+                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}"
             },
             OnlyOfficeServerUrl = documentServerUrl
         };
@@ -130,7 +131,8 @@ public class OnlyOfficeManager
             documentType = config.DocumentType,
             editorConfig = new
             {
-                mode = config.EditorConfig.Mode
+                mode = config.EditorConfig.Mode,
+                callbackUrl = config.EditorConfig.CallbackUrl
             }
         };
 
@@ -177,11 +179,6 @@ public class OnlyOfficeManager
     }
 
     // Business logic helper methods
-    private string GenerateDocumentKey(FileEntity fileEntity)
-    {
-        // Generate unique key for OnlyOffice document versioning
-        return $"file-{fileEntity.Id}-{DateTime.UtcNow:yyyyMMddHHmmssffff}";
-    }
 
     private string GetFileExtension(string fileName)
     {
@@ -258,6 +255,82 @@ public class OnlyOfficeManager
         return await _installationRepository.GetByApplicationIdAsync(applicationId);
     }
 
+    public async Task<bool> ProcessCallbackAsync(int fileId, CallbackRequest callback)
+    {
+        try
+        {
+            // Get the file entity
+            var fileEntity = await _repository.GetFileByIdAsync(fileId);
+            if (fileEntity == null)
+            {
+                throw new FileNotFoundException($"File with ID {fileId} not found");
+            }
+
+            // Validate the document key matches
+            if (callback.Key != fileEntity.Token)
+            {
+                throw new UnauthorizedAccessException($"Document key mismatch for file {fileId}");
+            }
+
+            // Handle different status codes
+            switch (callback.Status)
+            {
+                case 1: // Document being edited
+                    // Just log or update last access time
+                    return true;
+
+                case 2: // Document ready for saving
+                    if (string.IsNullOrEmpty(callback.Url))
+                    {
+                        throw new InvalidOperationException("No download URL provided for saving");
+                    }
+
+                    // Download the edited document
+                    using (var httpClient = new HttpClient())
+                    {
+                        var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+
+                        // Replace the original file with the edited version
+                        await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                    }
+
+                    return true;
+
+                case 3: // Document saving error
+                    // Log the error but don't fail
+                    return true;
+
+                case 4: // Document closed without changes
+                    // Nothing to do
+                    return true;
+
+                case 6: // Document force saved
+                    if (!string.IsNullOrEmpty(callback.Url))
+                    {
+                        using (var httpClient = new HttpClient())
+                        {
+                            var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+                            await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                        }
+                    }
+                    return true;
+
+                case 7: // Force save error
+                    // Log the error but don't fail
+                    return true;
+
+                default:
+                    // Unknown status, log but return success
+                    return true;
+            }
+        }
+        catch
+        {
+            // Re-throw to be handled by controller
+            throw;
+        }
+    }
+
 }
 
 // DTOs for business layer
@@ -289,6 +362,7 @@ public class PermissionsConfig
 public class EditorConfig
 {
     public string Mode { get; set; } = string.Empty;
+    public string? CallbackUrl { get; set; }
 }
 
 public class FileDownloadResult

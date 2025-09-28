@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using OnlyOfficeServer.Managers;
 using OnlyOfficeServer.Repositories;
 using OnlyOfficeServer.Data;
+using OnlyOfficeServer.Models;
 
 namespace OnlyOfficeServer.Controllers;
 
@@ -102,7 +103,8 @@ public class OnlyOfficeController : BaseController
                         documentType = config.DocumentType,
                         editorConfig = new
                         {
-                            mode = config.EditorConfig.Mode
+                            mode = config.EditorConfig.Mode,
+                            callbackUrl = config.EditorConfig.CallbackUrl
                         },
                         token = config.Token,
                     },
@@ -124,6 +126,71 @@ public class OnlyOfficeController : BaseController
             {
                 return StatusCode(500, new { message = "Config generation failed", error = ex.Message });
             }
+        }
+    }
+
+    [HttpGet("test-connectivity")]
+    public IActionResult TestConnectivity()
+    {
+        return Ok(new { message = "OnlyOffice controller is reachable", timestamp = DateTime.UtcNow });
+    }
+
+    [HttpPost("callback/{id}")]
+    public async Task<IActionResult> HandleCallback(int id, [FromBody] CallbackRequest request)
+    {
+        var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
+        var requestId = Guid.NewGuid().ToString("N")[..8];
+
+        logger?.LogInformation("=== CALLBACK START === Request ID: {RequestId}, File ID: {FileId}, Timestamp: {Timestamp}",
+            requestId, id, DateTime.UtcNow);
+
+        try
+        {
+            // Log all incoming request data
+            logger?.LogInformation("Callback Request Details - ID: {RequestId}, Status: {Status}, Key: {Key}, URL: {Url}, Users: {Users}",
+                requestId, request.Status, request.Key, request.Url ?? "null",
+                request.Users != null ? string.Join(",", request.Users) : "null");
+
+            // Log headers for debugging
+            logger?.LogInformation("Request Headers - ID: {RequestId}, Content-Type: {ContentType}, User-Agent: {UserAgent}",
+                requestId, Request.ContentType, Request.Headers.UserAgent.ToString());
+
+            // Get configuration from appsettings
+            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+            // Manual using statement for resource management
+            using (var repository = new OnlyOfficeRepository())
+            {
+                using var installationRepository = new InstallationRepository();
+                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+
+                logger?.LogInformation("Processing callback - ID: {RequestId}, About to call ProcessCallbackAsync", requestId);
+
+                var result = await manager.ProcessCallbackAsync(id, request);
+
+                logger?.LogInformation("Callback processing result - ID: {RequestId}, Success: {Result}", requestId, result);
+
+                var response = new CallbackResponse { Error = result ? 0 : 1, Message = result ? null : "Callback processing failed" };
+
+                logger?.LogInformation("=== CALLBACK END === Request ID: {RequestId}, Response: {Response}",
+                    requestId, System.Text.Json.JsonSerializer.Serialize(response));
+
+                return Ok(response);
+            }
+        }
+        catch (FileNotFoundException ex)
+        {
+            logger?.LogError("FileNotFoundException in callback - ID: {RequestId}, Error: {Error}", requestId, ex.Message);
+            var response = new CallbackResponse { Error = 1, Message = ex.Message };
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Exception in callback - ID: {RequestId}, Error: {Error}", requestId, ex.Message);
+            // Always return 200 OK to OnlyOffice, but with error code
+            var response = new CallbackResponse { Error = 1, Message = $"Callback failed: {ex.Message}" };
+            return Ok(response);
         }
     }
 
