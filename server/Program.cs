@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OnlyOfficeServer.Data;
 using OnlyOfficeServer.Services;
+using OnlyOfficeServer.Repositories;
+using OnlyOfficeServer.Managers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,11 +46,11 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure database is created and seeded
+// Apply migrations and seed database
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
+    context.Database.Migrate();
     DatabaseSeederService.SeedDatabase(context);
 }
 
