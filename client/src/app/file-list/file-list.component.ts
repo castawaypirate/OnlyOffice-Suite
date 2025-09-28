@@ -17,6 +17,7 @@ export class FileListComponent implements OnInit {
   isLoading = false;
   errorMessage = '';
   selectedFile: File | null = null;
+  onlyOfficeEnabled = false;
 
   constructor(
     private router: Router,
@@ -41,8 +42,9 @@ export class FileListComponent implements OnInit {
     this.errorMessage = '';
     
     this.fileService.getFiles().subscribe({
-      next: (files) => {
-        this.files = files;
+      next: (response) => {
+        this.files = response.files;
+        this.onlyOfficeEnabled = response.features.onlyOfficeEnabled;
         this.isLoading = false;
       },
       error: (error) => {

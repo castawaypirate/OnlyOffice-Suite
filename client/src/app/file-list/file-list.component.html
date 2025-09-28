@@ -50,8 +50,9 @@
               title="Download file">
               ⬇️ Download
             </button>
-            <button 
-              class="open-btn" 
+            <button
+              *ngIf="onlyOfficeEnabled"
+              class="open-btn"
               (click)="openDocument(file.id)"
               title="Open in editor">
               📝 Open

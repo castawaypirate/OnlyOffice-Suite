@@ -8,10 +8,12 @@ namespace OnlyOfficeServer.Controllers;
 public class FilesController : BaseController
 {
     private readonly FileService _fileService;
+    private readonly IConfiguration _configuration;
 
-    public FilesController(FileService fileService)
+    public FilesController(FileService fileService, IConfiguration configuration)
     {
         _fileService = fileService;
+        _configuration = configuration;
     }
 
     [HttpPost("upload")]
@@ -66,7 +68,7 @@ public class FilesController : BaseController
         try
         {
             var files = await _fileService.GetUserFilesAsync(userId);
-            
+
             var fileList = files.Select(f => new
             {
                 id = f.Id,
@@ -77,7 +79,18 @@ public class FilesController : BaseController
                 token = f.Token
             });
 
-            return Ok(fileList);
+            var onlyOfficeEnabled = _configuration.GetValue<bool>("OnlyOffice:Enabled", false);
+
+            var response = new
+            {
+                files = fileList,
+                features = new
+                {
+                    onlyOfficeEnabled = onlyOfficeEnabled
+                }
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {

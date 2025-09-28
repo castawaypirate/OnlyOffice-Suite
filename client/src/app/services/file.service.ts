@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { IConfig } from '@onlyoffice/document-editor-angular';
-import { FileItem, UploadResponse, IOnlyOfficeConfig } from '../models';
+import { FileItem, UploadResponse, IOnlyOfficeConfig, FilesResponse } from '../models';
 import { environment } from '../app.config';
 
 @Injectable({
@@ -39,9 +39,9 @@ export class FileService {
     );
   }
 
-  getFiles(): Observable<FileItem[]> {
-    return this.http.get<FileItem[]>(
-      `${this.apiUrl}/files`, 
+  getFiles(): Observable<FilesResponse> {
+    return this.http.get<FilesResponse>(
+      `${this.apiUrl}/files`,
       this.getHttpOptionsWithHeaders()
     );
   }

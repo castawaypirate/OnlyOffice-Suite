@@ -15,3 +15,10 @@ export interface UploadResponse {
   uploadedAt: Date;
   message: string;
 }
+
+export interface FilesResponse {
+  files: FileItem[];
+  features: {
+    onlyOfficeEnabled: boolean;
+  };
+}
