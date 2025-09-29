@@ -19,13 +19,7 @@ public class FileEntity
     [Required]
     [MaxLength(500)]
     public string FilePath { get; set; } = string.Empty;
-    
-    [Required]
-    [MaxLength(100)]
-    public string Token { get; set; } = string.Empty;
-    
-    public DateTime TokenExpires { get; set; }
-    
+
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     
     // Navigation property

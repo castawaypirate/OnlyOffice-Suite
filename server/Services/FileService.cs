@@ -47,8 +47,6 @@ public class FileService
             Filename = fileName,
             OriginalName = file.FileName,
             FilePath = filePath,
-            Token = GenerateFileToken(),
-            TokenExpires = DateTime.UtcNow.AddDays(30), // 30 days expiration
             UploadedAt = DateTime.UtcNow
         };
 
@@ -78,17 +76,6 @@ public class FileService
             .FirstOrDefaultAsync(f => f.Id == fileId);
     }
 
-    public async Task<FileEntity?> GetFileByTokenAsync(string token)
-    {
-        return await _context.Files
-            .Include(f => f.User)
-            .FirstOrDefaultAsync(f => f.Token == token && f.TokenExpires > DateTime.UtcNow);
-    }
-
-    private string GenerateFileToken()
-    {
-        return Guid.NewGuid().ToString("N")[..32]; // 32 character token
-    }
 
     public async Task<bool> DeleteFileAsync(int fileId, int userId)
     {
@@ -189,8 +176,6 @@ public class FileService
             Filename = fileName,
             OriginalName = tempFile.OriginalName,
             FilePath = permanentPath,
-            Token = GenerateFileToken(),
-            TokenExpires = DateTime.UtcNow.AddDays(30),
             UploadedAt = DateTime.UtcNow
         };
 

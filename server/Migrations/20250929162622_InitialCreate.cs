@@ -55,8 +55,6 @@ namespace OnlyOfficeServer.Migrations
                     Filename = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     OriginalName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     FilePath = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    Token = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    TokenExpires = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UploadedAt = table.Column<DateTime>(type: "TEXT", nullable: false, defaultValueSql: "datetime('now')")
                 },
                 constraints: table =>
@@ -69,12 +67,6 @@ namespace OnlyOfficeServer.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Files_Token",
-                table: "Files",
-                column: "Token",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Files_UserId",

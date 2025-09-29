@@ -41,7 +41,8 @@ public class OnlyOfficeManager
         }
 
         // Use configured host URL for Docker compatibility, fallback to baseUrl
-        var hostUrl = _configuration["OnlyOffice:HostUrl"] ?? baseUrl;
+        // var hostUrl = baseUrl;
+        var hostUrl = "http://host.docker.internal:5142"; //For docker
         var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
 
         // Business logic: Build OnlyOffice configuration
@@ -50,7 +51,7 @@ public class OnlyOfficeManager
             Document = new DocumentConfig
             {
                 FileType = GetFileExtension(fileEntity.OriginalName),
-                Key = fileEntity.Token,
+                Key = GenerateDocumentKey(fileEntity),
                 Title = fileEntity.OriginalName,
                 Url = $"{hostUrl}/api/onlyoffice/download/{fileEntity.Id}",
                 Permissions = new PermissionsConfig
@@ -180,6 +181,14 @@ public class OnlyOfficeManager
 
     // Business logic helper methods
 
+    private string GenerateDocumentKey(FileEntity fileEntity)
+    {
+        // Generate a stable key based on file ID and uploaded date
+        // This ensures the same file always gets the same key for consistency
+        var keySource = $"file-{fileEntity.Id}-{fileEntity.UploadedAt:yyyyMMddHHmmss}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(keySource)).Replace("=", "").Replace("+", "-").Replace("/", "_");
+    }
+
     private string GetFileExtension(string fileName)
     {
         return Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
@@ -267,7 +276,8 @@ public class OnlyOfficeManager
             }
 
             // Validate the document key matches
-            if (callback.Key != fileEntity.Token)
+            var expectedKey = GenerateDocumentKey(fileEntity);
+            if (callback.Key != expectedKey)
             {
                 throw new UnauthorizedAccessException($"Document key mismatch for file {fileId}");
             }

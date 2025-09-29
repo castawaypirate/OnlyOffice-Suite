@@ -27,7 +27,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FileEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Token).IsUnique();
             entity.Property(e => e.UploadedAt).HasDefaultValueSql("datetime('now')");
 
             // Configure relationship

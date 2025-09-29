@@ -76,7 +76,6 @@ public class FilesController : BaseController
                 filename = f.Filename,
                 size = _fileService.GetFileSize(f.FilePath),
                 uploadDate = f.UploadedAt,
-                token = f.Token,
                 isTemporary = false
             });
 
@@ -89,7 +88,6 @@ public class FilesController : BaseController
                 filename = (string?)null,
                 size = _fileService.GetFileSize(tf.TempFilePath),
                 uploadDate = tf.UploadedAt,
-                token = (string?)null,
                 isTemporary = true
             });
 
@@ -169,7 +167,6 @@ public class FilesController : BaseController
                 filename = fileEntity.Filename,
                 size = _fileService.GetFileSize(fileEntity.FilePath),
                 uploadedAt = fileEntity.UploadedAt,
-                token = fileEntity.Token,
                 isTemporary = false,
                 message = "File saved successfully"
             });
