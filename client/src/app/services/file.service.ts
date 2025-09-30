@@ -47,8 +47,10 @@ export class FileService {
   }
 
   downloadFile(fileId: number): Observable<Blob> {
+    // Add timestamp to bust browser cache
+    const timestamp = new Date().getTime();
     return this.http.get(
-      `${this.apiUrl}/files/${fileId}/download`,
+      `${this.apiUrl}/files/${fileId}/download?t=${timestamp}`,
       {
         responseType: 'blob',
         withCredentials: true

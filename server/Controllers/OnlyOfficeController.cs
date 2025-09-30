@@ -69,7 +69,7 @@ public class OnlyOfficeController : BaseController
                 var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
 
                 // Get ApplicationId from configuration
-                var applicationId = configuration.GetValue<int>("ApplicationId");
+                var applicationId = configuration!.GetValue<int>("ApplicationId");
 
                 // **APPROACH 1: Using dedicated InstallationManager (injected via DI)**
                 var baseUrl = await _installationManager.GetApplicationUrlAsync(applicationId);
@@ -171,6 +171,7 @@ public class OnlyOfficeController : BaseController
 
                 logger?.LogInformation("Callback processing result - ID: {RequestId}, Success: {Result}", requestId, result);
 
+//test other responses
                 var response = new CallbackResponse { Error = result ? 0 : 1, Message = result ? null : "Callback processing failed" };
 
                 logger?.LogInformation("=== CALLBACK END === Request ID: {RequestId}, Response: {Response}",

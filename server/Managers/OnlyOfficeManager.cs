@@ -67,7 +67,7 @@ public class OnlyOfficeManager
                 Mode = "edit",
                 CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}"
             },
-            OnlyOfficeServerUrl = documentServerUrl
+            OnlyOfficeServerUrl = documentServerUrl ?? string.Empty
         };
 
         // Generate JWT token for the complete config
@@ -183,9 +183,9 @@ public class OnlyOfficeManager
 
     private string GenerateDocumentKey(FileEntity fileEntity)
     {
-        // Generate a stable key based on file ID and uploaded date
-        // This ensures the same file always gets the same key for consistency
-        var keySource = $"file-{fileEntity.Id}-{fileEntity.UploadedAt:yyyyMMddHHmmss}";
+        // Generate a unique key based on file ID and last modified date
+        // This ensures the key changes when the document is edited via OnlyOffice callback
+        var keySource = $"file-{fileEntity.Id}-{fileEntity.LastModifiedAt:yyyyMMddHHmmss}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(keySource)).Replace("=", "").Replace("+", "-").Replace("/", "_");
     }
 
@@ -268,19 +268,31 @@ public class OnlyOfficeManager
     {
         try
         {
-            // Get the file entity
-            var fileEntity = await _repository.GetFileByIdAsync(fileId);
+            Console.WriteLine($"[CALLBACK DEBUG] Processing callback for file {fileId}, Status: {callback.Status}");
+
+            // Get the file entity directly from _context so it's tracked by EF Core
+            // This is critical - using _repository would fetch from a different context!
+            var fileEntity = await _context.Files.FirstOrDefaultAsync(f => f.Id == fileId);
             if (fileEntity == null)
             {
+                Console.WriteLine($"[CALLBACK ERROR] File with ID {fileId} not found");
                 throw new FileNotFoundException($"File with ID {fileId} not found");
             }
 
+            Console.WriteLine($"[CALLBACK DEBUG] File found: {fileEntity.OriginalName}, LastModifiedAt: {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
             // Validate the document key matches
             var expectedKey = GenerateDocumentKey(fileEntity);
+            Console.WriteLine($"[CALLBACK DEBUG] Expected key: {expectedKey}");
+            Console.WriteLine($"[CALLBACK DEBUG] Received key: {callback.Key}");
+
             if (callback.Key != expectedKey)
             {
+                Console.WriteLine($"[CALLBACK ERROR] Document key mismatch! Expected: {expectedKey}, Got: {callback.Key}");
                 throw new UnauthorizedAccessException($"Document key mismatch for file {fileId}");
             }
+
+            Console.WriteLine($"[CALLBACK DEBUG] Key validation passed");
 
             // Handle different status codes
             switch (callback.Status)
@@ -290,18 +302,33 @@ public class OnlyOfficeManager
                     return true;
 
                 case 2: // Document ready for saving
+                    Console.WriteLine($"[CALLBACK DEBUG] Status 2 - Document ready for saving");
                     if (string.IsNullOrEmpty(callback.Url))
                     {
+                        Console.WriteLine($"[CALLBACK ERROR] No download URL provided");
                         throw new InvalidOperationException("No download URL provided for saving");
                     }
+
+                    Console.WriteLine($"[CALLBACK DEBUG] Downloading from: {callback.Url}");
 
                     // Download the edited document
                     using (var httpClient = new HttpClient())
                     {
                         var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+                        Console.WriteLine($"[CALLBACK DEBUG] Downloaded {editedFileBytes.Length} bytes");
 
                         // Replace the original file with the edited version
+                        Console.WriteLine($"[CALLBACK DEBUG] Writing to: {fileEntity.FilePath}");
                         await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                        Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
+
+                        // Update LastModifiedAt to change the document key for next edit session
+                        var oldModifiedAt = fileEntity.LastModifiedAt;
+                        fileEntity.LastModifiedAt = DateTime.UtcNow;
+                        Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
                     }
 
                     return true;
@@ -315,13 +342,31 @@ public class OnlyOfficeManager
                     return true;
 
                 case 6: // Document force saved
+                    Console.WriteLine($"[CALLBACK DEBUG] Status 6 - Document force saved");
                     if (!string.IsNullOrEmpty(callback.Url))
                     {
+                        Console.WriteLine($"[CALLBACK DEBUG] Downloading from: {callback.Url}");
                         using (var httpClient = new HttpClient())
                         {
                             var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+                            Console.WriteLine($"[CALLBACK DEBUG] Downloaded {editedFileBytes.Length} bytes");
+
+                            Console.WriteLine($"[CALLBACK DEBUG] Writing to: {fileEntity.FilePath}");
                             await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                            Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
+
+                            // Update LastModifiedAt to change the document key for next edit session
+                            var oldModifiedAt = fileEntity.LastModifiedAt;
+                            fileEntity.LastModifiedAt = DateTime.UtcNow;
+                            Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
+                            await _context.SaveChangesAsync();
+                            Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
                         }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[CALLBACK DEBUG] No URL provided for status 6");
                     }
                     return true;
 
@@ -330,12 +375,15 @@ public class OnlyOfficeManager
                     return true;
 
                 default:
+                    Console.WriteLine($"[CALLBACK DEBUG] Unknown status: {callback.Status}");
                     // Unknown status, log but return success
                     return true;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[CALLBACK ERROR] Exception: {ex.GetType().Name} - {ex.Message}");
+            Console.WriteLine($"[CALLBACK ERROR] StackTrace: {ex.StackTrace}");
             // Re-throw to be handled by controller
             throw;
         }

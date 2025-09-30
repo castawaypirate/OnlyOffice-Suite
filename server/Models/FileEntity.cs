@@ -21,7 +21,9 @@ public class FileEntity
     public string FilePath { get; set; } = string.Empty;
 
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
-    
+
+    public DateTime LastModifiedAt { get; set; } = DateTime.UtcNow;
+
     // Navigation property
     public User User { get; set; } = null!;
 }

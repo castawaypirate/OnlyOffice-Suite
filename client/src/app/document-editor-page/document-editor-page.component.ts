@@ -16,6 +16,7 @@ export class DocumentEditorPageComponent implements OnInit {
   documentServerUrl = '';
   config: IConfig | null = null;
   editorKey = '';
+  docEditor: any = null; // Reference to OnlyOffice editor instance
 
   constructor(
     private route: ActivatedRoute,
@@ -60,8 +61,26 @@ export class DocumentEditorPageComponent implements OnInit {
     this.router.navigate(['/files']);
   }
 
-  onDocumentReady() {
+  saveAndClose() {
+    if (this.docEditor && typeof this.docEditor.forceSave === 'function') {
+      console.log('🔧 Forcing document save before closing...');
+      // Force save triggers Status 6 callback immediately
+      this.docEditor.forceSave();
+
+      // Wait a moment for the callback to complete, then navigate
+      setTimeout(() => {
+        this.router.navigate(['/files']);
+      }, 2000); // 2 seconds should be enough for force save callback
+    } else {
+      // Fallback if forceSave not available
+      this.router.navigate(['/files']);
+    }
+  }
+
+  onDocumentReady(event: any) {
     console.log('🔧 Document editor is ready for file:', this.fileId);
+    // Store reference to editor instance for force save
+    this.docEditor = event;
   }
 
   onDocumentStateChange(event: any) {

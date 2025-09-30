@@ -27,6 +27,21 @@
   background-color: #5a6268;
 }
 
+.save-close-btn {
+  padding: 0.5rem 1rem;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.save-close-btn:hover {
+  background-color: #218838;
+}
+
 .editor-container {
   flex: 1;
   padding: 1rem;
