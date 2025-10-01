@@ -38,7 +38,7 @@ public class AuthController : ControllerBase
         }
 
         // Create session
-        HttpContext.Session.SetInt32(UserIdSessionKey, user.Id);
+        HttpContext.Session.SetString(UserIdSessionKey, user.Id.ToString());
         HttpContext.Session.SetString(UsernameSessionKey, user.Username);
 
         return Ok(new { 
@@ -52,7 +52,12 @@ public class AuthController : ControllerBase
     public IActionResult Logout()
     {
         // Get current user ID before clearing session
-        var userId = HttpContext.Session.GetInt32(UserIdSessionKey);
+        var userIdString = HttpContext.Session.GetString(UserIdSessionKey);
+        Guid? userId = null;
+        if (!string.IsNullOrEmpty(userIdString) && Guid.TryParse(userIdString, out var parsedUserId))
+        {
+            userId = parsedUserId;
+        }
 
         // Clean up temp files for this user
         if (userId.HasValue)
@@ -67,7 +72,12 @@ public class AuthController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetStatus()
     {
-        var userId = HttpContext.Session.GetInt32(UserIdSessionKey);
+        var userIdString = HttpContext.Session.GetString(UserIdSessionKey);
+        Guid? userId = null;
+        if (!string.IsNullOrEmpty(userIdString) && Guid.TryParse(userIdString, out var parsedUserId))
+        {
+            userId = parsedUserId;
+        }
         var username = HttpContext.Session.GetString(UsernameSessionKey);
 
         if (userId.HasValue && !string.IsNullOrEmpty(username))

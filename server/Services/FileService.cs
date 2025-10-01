@@ -24,14 +24,15 @@ public class FileService
         Directory.CreateDirectory(_tempPath);
     }
 
-    public async Task<FileEntity> SaveFileAsync(IFormFile file, int userId)
+    public async Task<FileEntity> SaveFileAsync(IFormFile file, Guid userId)
     {
         // Create user directory if it doesn't exist
         var userDir = Path.Combine(_uploadsPath, userId.ToString());
         Directory.CreateDirectory(userDir);
 
         // Generate unique filename to avoid collisions
-        var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{Guid.NewGuid()}{extension}";
         var filePath = Path.Combine(userDir, fileName);
 
         // Save file to disk
@@ -56,7 +57,7 @@ public class FileService
         return fileEntity;
     }
 
-    public async Task<List<FileEntity>> GetUserFilesAsync(int userId)
+    public async Task<List<FileEntity>> GetUserFilesAsync(Guid userId)
     {
         return await _context.Files
             .Where(f => f.UserId == userId)
@@ -64,20 +65,20 @@ public class FileService
             .ToListAsync();
     }
 
-    public async Task<FileEntity?> GetFileByIdAsync(int fileId, int userId)
+    public async Task<FileEntity?> GetFileByIdAsync(Guid fileId, Guid userId)
     {
         return await _context.Files
             .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId);
     }
 
-    public async Task<FileEntity?> GetFileByIdAsync(int fileId)
+    public async Task<FileEntity?> GetFileByIdAsync(Guid fileId)
     {
         return await _context.Files
             .FirstOrDefaultAsync(f => f.Id == fileId);
     }
 
 
-    public async Task<bool> DeleteFileAsync(int fileId, int userId)
+    public async Task<bool> DeleteFileAsync(Guid fileId, Guid userId)
     {
         var fileEntity = await GetFileByIdAsync(fileId, userId);
         if (fileEntity == null)
@@ -115,11 +116,12 @@ public class FileService
     }
 
     // Temp file methods
-    public async Task<TempFile> SaveTempFileAsync(IFormFile file, int userId)
+    public async Task<TempFile> SaveTempFileAsync(IFormFile file, Guid userId)
     {
         // Generate unique temp file ID
         var tempId = Guid.NewGuid().ToString("N");
-        var fileName = $"{tempId}_{file.FileName}";
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"{tempId}{extension}";
         var filePath = Path.Combine(_tempPath, fileName);
 
         // Save file to temp directory
@@ -145,7 +147,7 @@ public class FileService
         return tempFile;
     }
 
-    public async Task<FileEntity> SaveTempFileToStorageAsync(string tempId, int userId)
+    public async Task<FileEntity> SaveTempFileToStorageAsync(string tempId, Guid userId)
     {
         // Get temp file
         if (!_tempFiles.TryGetValue(tempId, out var tempFile) || tempFile.UserId != userId)
@@ -163,7 +165,8 @@ public class FileService
         Directory.CreateDirectory(userDir);
 
         // Generate unique filename for permanent storage
-        var fileName = $"{Guid.NewGuid()}_{tempFile.OriginalName}";
+        var extension = Path.GetExtension(tempFile.OriginalName);
+        var fileName = $"{Guid.NewGuid()}{extension}";
         var permanentPath = Path.Combine(userDir, fileName);
 
         // Move file from temp to permanent location
@@ -188,7 +191,7 @@ public class FileService
         return fileEntity;
     }
 
-    public bool DeleteTempFile(string tempId, int userId)
+    public bool DeleteTempFile(string tempId, Guid userId)
     {
         if (!_tempFiles.TryGetValue(tempId, out var tempFile) || tempFile.UserId != userId)
         {
@@ -207,7 +210,7 @@ public class FileService
         return true;
     }
 
-    public List<TempFile> GetUserTempFiles(int userId)
+    public List<TempFile> GetUserTempFiles(Guid userId)
     {
         return _tempFiles.Values
             .Where(tf => tf.UserId == userId)
@@ -215,7 +218,7 @@ public class FileService
             .ToList();
     }
 
-    public void CleanupUserTempFiles(int userId)
+    public void CleanupUserTempFiles(Guid userId)
     {
         var userTempFiles = _tempFiles.Values
             .Where(tf => tf.UserId == userId)

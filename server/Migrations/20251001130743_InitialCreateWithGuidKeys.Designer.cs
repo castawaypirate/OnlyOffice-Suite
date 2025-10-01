@@ -11,8 +11,8 @@ using OnlyOfficeServer.Data;
 namespace OnlyOfficeServer.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250929174806_AddLastModifiedAtToFileEntity")]
-    partial class AddLastModifiedAtToFileEntity
+    [Migration("20251001130743_InitialCreateWithGuidKeys")]
+    partial class InitialCreateWithGuidKeys
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -22,9 +22,9 @@ namespace OnlyOfficeServer.Migrations
 
             modelBuilder.Entity("OnlyOfficeServer.Models.FileEntity", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
@@ -49,8 +49,8 @@ namespace OnlyOfficeServer.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValueSql("datetime('now')");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -108,9 +108,9 @@ namespace OnlyOfficeServer.Migrations
 
             modelBuilder.Entity("OnlyOfficeServer.Models.User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()

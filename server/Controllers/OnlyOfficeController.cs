@@ -17,7 +17,7 @@ public class OnlyOfficeController : BaseController
         _installationManager = installationManager;
     }
     [HttpGet("download/{id}")]
-    public async Task<IActionResult> DownloadFile(int id)
+    public async Task<IActionResult> DownloadFile(Guid id)
     {
         // Manual using statement for resource management
         using (var repository = new OnlyOfficeRepository())
@@ -28,9 +28,7 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                // Create InstallationRepository for consistency with config endpoint
-                using var installationRepository = new InstallationRepository();
-                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
                 var fileResult = await manager.GetFileForDownloadAsync(id);
                 
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
@@ -47,7 +45,7 @@ public class OnlyOfficeController : BaseController
     }
 
     [HttpGet("config/{id}")]
-    public async Task<IActionResult> GetConfig(int id)
+    public async Task<IActionResult> GetConfig(Guid id)
     {
         var authCheck = RequireAuthentication();
         if (authCheck is not OkResult)
@@ -64,21 +62,13 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                // Create InstallationRepository for Approach 3
-                using var installationRepository = new InstallationRepository();
-                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
 
                 // Get ApplicationId from configuration
                 var applicationId = configuration!.GetValue<int>("ApplicationId");
 
-                // **APPROACH 1: Using dedicated InstallationManager (injected via DI)**
+                // Get base URL from InstallationManager
                 var baseUrl = await _installationManager.GetApplicationUrlAsync(applicationId);
-
-                // **APPROACH 2: Using OnlyOfficeManager installation methods (via AppDbContext)**
-                // var baseUrl = await manager.GetApplicationUrlAsync(applicationId);
-
-                // **APPROACH 3: Using OnlyOfficeManager installation methods (via InstallationRepository)**
-                // var baseUrl = await manager.GetApplicationUrlViaRepositoryAsync(applicationId);
 
                 var config = await manager.GetConfigAsync(id, baseUrl);
 
@@ -136,7 +126,7 @@ public class OnlyOfficeController : BaseController
     }
 
     [HttpPost("callback/{id}")]
-    public async Task<IActionResult> HandleCallback(int id, [FromBody] CallbackRequest request)
+    public async Task<IActionResult> HandleCallback(Guid id, [FromBody] CallbackRequest request)
     {
         var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
         var requestId = Guid.NewGuid().ToString("N")[..8];
@@ -162,8 +152,7 @@ public class OnlyOfficeController : BaseController
             // Manual using statement for resource management
             using (var repository = new OnlyOfficeRepository())
             {
-                using var installationRepository = new InstallationRepository();
-                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
 
                 logger?.LogInformation("Processing callback - ID: {RequestId}, About to call ProcessCallbackAsync", requestId);
 

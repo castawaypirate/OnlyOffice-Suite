@@ -4,9 +4,9 @@ namespace OnlyOfficeServer.Models;
 
 public class FileEntity
 {
-    public int Id { get; set; }
-    
-    public int UserId { get; set; }
+    public Guid Id { get; set; }
+
+    public Guid UserId { get; set; }
     
     [Required]
     [MaxLength(255)]

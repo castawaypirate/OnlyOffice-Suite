@@ -114,7 +114,7 @@ public class FilesController : BaseController
     }
 
     [HttpGet("{id}/download")]
-    public async Task<IActionResult> DownloadFile(int id)
+    public async Task<IActionResult> DownloadFile(Guid id)
     {
         var authCheck = RequireAuthentication();
         if (authCheck is not OkResult)
@@ -212,8 +212,8 @@ public class FilesController : BaseController
 
         try
         {
-            // Try to parse as integer for saved files
-            if (int.TryParse(id, out var fileId))
+            // Try to parse as Guid for saved files
+            if (Guid.TryParse(id, out var fileId))
             {
                 var success = await _fileService.DeleteFileAsync(fileId, userId);
                 if (success)

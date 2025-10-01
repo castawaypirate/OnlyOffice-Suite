@@ -19,7 +19,7 @@ public class OnlyOfficeRepository : IOnlyOfficeRepository
         _context = new AppDbContext(optionsBuilder.Options);
     }
 
-    public async Task<FileEntity?> GetFileByIdAsync(int id)
+    public async Task<FileEntity?> GetFileByIdAsync(Guid id)
     {
         return await _context.Files
             .Include(f => f.User)

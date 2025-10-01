@@ -31,9 +31,8 @@ export class DocumentEditorPageComponent implements OnInit {
 
   private loadFileData() {
     try {
-      const fileIdNum = parseInt(this.fileId, 10);
-      
-      this.fileService.getOnlyOfficeConfig(fileIdNum).subscribe({
+      // fileId is now a Guid string, no need to parse
+      this.fileService.getOnlyOfficeConfig(this.fileId).subscribe({
         next: (backendConfig: IOnlyOfficeConfig) => {
           // Backend returns nested config with onlyOfficeServerUrl
           this.config = backendConfig.config;

@@ -18,12 +18,14 @@ public static class DatabaseSeederService
         {
             new User
             {
+                Id = Guid.NewGuid(),
                 Username = "admin",
                 Password = "admin123",
                 CreatedAt = DateTime.UtcNow
             },
             new User
             {
+                Id = Guid.NewGuid(),
                 Username = "user1",
                 Password = "password",
                 CreatedAt = DateTime.UtcNow

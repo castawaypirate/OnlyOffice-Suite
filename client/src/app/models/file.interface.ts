@@ -1,5 +1,5 @@
 export interface FileItem {
-  id: number | string;
+  id: string;
   name: string;
   filename: string | null;
   size: string;
@@ -9,7 +9,7 @@ export interface FileItem {
 }
 
 export interface UploadResponse {
-  id: number | string;
+  id: string;
   originalName: string;
   filename?: string;
   size: string;
