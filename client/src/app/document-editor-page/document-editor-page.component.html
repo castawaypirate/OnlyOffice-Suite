@@ -3,7 +3,7 @@
     <button class="back-btn" (click)="goBack()">
       ← Back to Files
     </button>
-    <button class="save-close-btn" (click)="saveAndClose()">
+    <button class="save-close-btn" (click)="saveAndClose()" [disabled]="hasUncommittedChanges">
       💾 Save & Close
     </button>
     <h2>{{ fileName }}</h2>
@@ -11,11 +11,9 @@
   
   <div class="editor-container" *ngIf="config && editorKey" [attr.data-editor-key]="editorKey">
     <document-editor
+      id="docEditor"
       [documentServerUrl]="documentServerUrl"
       [config]="config"
-      (onDocumentReady)="onDocumentReady($event)"
-      (onDocumentStateChange)="onDocumentStateChange($event)"
-      (onError)="onError($event)"
       style="height: 800px; width: 100%;">
     </document-editor>
   </div>

@@ -38,8 +38,14 @@
   font-weight: 500;
 }
 
-.save-close-btn:hover {
+.save-close-btn:hover:not(:disabled) {
   background-color: #218838;
+}
+
+.save-close-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .editor-container {

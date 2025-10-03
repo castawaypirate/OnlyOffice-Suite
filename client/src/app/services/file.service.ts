@@ -80,6 +80,13 @@ export class FileService {
     );
   }
 
+  forceSaveDocument(fileId: string, documentKey: string): Observable<{error: number, message?: string}> {
+    return this.http.post<{error: number, message?: string}>(
+      `${this.apiUrl}/onlyoffice/forcesave/${fileId}`,
+      { key: documentKey },
+      this.getHttpOptionsWithHeaders()
+    );
+  }
 
   // Helper method to trigger file download in browser
   downloadFileAsBlob(fileId: string, fileName: string): void {

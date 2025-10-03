@@ -26,3 +26,9 @@ public class CallbackResponse
     public int Error { get; set; }
     public string? Message { get; set; }
 }
+
+public class ForceSaveRequest
+{
+    [Required]
+    public string Key { get; set; } = string.Empty;
+}

@@ -119,10 +119,47 @@ public class OnlyOfficeController : BaseController
         }
     }
 
-    [HttpGet("test-connectivity")]
-    public IActionResult TestConnectivity()
+    [HttpPost("forcesave/{id}")]
+    public async Task<IActionResult> ForceSave(Guid id, [FromBody] ForceSaveRequest request)
     {
-        return Ok(new { message = "OnlyOffice controller is reachable", timestamp = DateTime.UtcNow });
+        var authCheck = RequireAuthentication();
+        if (authCheck is not OkResult)
+            return authCheck;
+
+        var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
+
+        try
+        {
+            logger?.LogInformation("ForceSave requested for file ID: {FileId}, Key: {Key}", id, request.Key);
+
+            if (string.IsNullOrEmpty(request.Key))
+            {
+                return BadRequest(new { error = 1, message = "Document key is required" });
+            }
+
+            // Get configuration from appsettings
+            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+            using (var repository = new OnlyOfficeRepository())
+            {
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+
+                logger?.LogInformation("Calling OnlyOffice Command Service with key: {Key}", request.Key);
+
+                // Call OnlyOffice Command Service with the key from frontend
+                var result = await manager.SendForceSaveCommandAsync(request.Key);
+
+                logger?.LogInformation("ForceSave command result - Error: {Error}", result.Error);
+
+                return Ok(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "ForceSave failed for file ID: {FileId}", id);
+            return StatusCode(500, new { error = 1, message = $"ForceSave failed: {ex.Message}" });
+        }
     }
 
     [HttpPost("callback/{id}")]
@@ -160,7 +197,6 @@ public class OnlyOfficeController : BaseController
 
                 logger?.LogInformation("Callback processing result - ID: {RequestId}, Success: {Result}", requestId, result);
 
-//test other responses
                 var response = new CallbackResponse { Error = result ? 0 : 1, Message = result ? null : "Callback processing failed" };
 
                 logger?.LogInformation("=== CALLBACK END === Request ID: {RequestId}, Response: {Response}",
@@ -183,5 +219,4 @@ public class OnlyOfficeController : BaseController
             return Ok(response);
         }
     }
-
 }

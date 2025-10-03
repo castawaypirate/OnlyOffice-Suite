@@ -17,6 +17,7 @@ export class DocumentEditorPageComponent implements OnInit {
   config: IConfig | null = null;
   editorKey = '';
   docEditor: any = null; // Reference to OnlyOffice editor instance
+  hasUncommittedChanges = true; // Track if document has uncommitted changes (starts true until first save)
 
   constructor(
     private route: ActivatedRoute,
@@ -31,59 +32,108 @@ export class DocumentEditorPageComponent implements OnInit {
 
   private loadFileData() {
     try {
+      console.log('🔍 Loading file config for:', this.fileId);
       // fileId is now a Guid string, no need to parse
       this.fileService.getOnlyOfficeConfig(this.fileId).subscribe({
         next: (backendConfig: IOnlyOfficeConfig) => {
+          console.log('✅ Config received from backend:', backendConfig);
+
           // Backend returns nested config with onlyOfficeServerUrl
           this.config = backendConfig.config;
           this.documentServerUrl = backendConfig.onlyOfficeServerUrl;
+
+          // Add events to config
+          this.config.events = {
+            onDocumentReady: this.onDocumentReady.bind(this),
+            onDocumentStateChange: this.onDocumentStateChange.bind(this),
+            onError: this.onError.bind(this)
+          };
+
+          console.log('📄 Document Server URL:', this.documentServerUrl);
+          console.log('📋 Config:', this.config);
 
           this.fileName = backendConfig.config.document?.title || 'Document';
 
           // Generate unique editor key to force recreation
           this.editorKey = `editor-${this.fileId}-${this.config.document?.key || 'unknown'}-${Date.now()}`;
+
+          console.log('🔑 Editor key generated:', this.editorKey);
         },
         error: (error) => {
-          console.error('Failed to load OnlyOffice config:', error);
+          console.error('❌ Failed to load OnlyOffice config:', error);
           this.fileName = 'Error loading document';
         }
       });
     } catch (error) {
-      console.error('Invalid file ID:', error);
+      console.error('❌ Invalid file ID:', error);
       this.fileName = 'Invalid document ID';
     }
   }
-
-
 
   goBack() {
     this.router.navigate(['/files']);
   }
 
   saveAndClose() {
-    if (this.docEditor && typeof this.docEditor.forceSave === 'function') {
-      console.log('🔧 Forcing document save before closing...');
-      // Force save triggers Status 6 callback immediately
-      this.docEditor.forceSave();
+    console.log('💾 Save & Close button clicked');
 
-      // Wait a moment for the callback to complete, then navigate
-      setTimeout(() => {
-        this.router.navigate(['/files']);
-      }, 2000); // 2 seconds should be enough for force save callback
-    } else {
-      // Fallback if forceSave not available
+    // Get the document key from the current config
+    const documentKey = this.config?.document?.key;
+
+    if (!documentKey) {
+      console.error('❌ No document key available');
       this.router.navigate(['/files']);
+      return;
     }
+
+    console.log('📤 Sending forceSave with key:', documentKey);
+
+    // Call backend forcesave endpoint with the current document key
+    this.fileService.forceSaveDocument(this.fileId, documentKey).subscribe({
+      next: (result) => {
+        console.log('✅ ForceSave command sent successfully:', result);
+
+        if (result.error === 0) {
+          console.log('✅ Document saved successfully');
+          // Wait a moment for the callback to complete, then navigate
+          setTimeout(() => {
+            this.router.navigate(['/files']);
+          }, 2000); // 2 seconds for callback to process
+        } else {
+          console.error('❌ ForceSave command failed:', result.message);
+          // Still navigate even if save failed
+          this.router.navigate(['/files']);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Failed to send ForceSave command:', error);
+        // Navigate anyway to avoid getting stuck
+        this.router.navigate(['/files']);
+      }
+    });
   }
 
   onDocumentReady(event: any) {
     console.log('🔧 Document editor is ready for file:', this.fileId);
-    // Store reference to editor instance for force save
-    this.docEditor = event;
+    console.log('🔧 Editor instance:', event);
+    console.log('🔧 forceSave available?', typeof event?.forceSave === 'function');
+
+    // When document loads, assume no uncommitted changes (document is in saved state)
+    this.hasUncommittedChanges = false;
   }
 
   onDocumentStateChange(event: any) {
-    console.log('Document state changed:', event);
+    console.log('📝 Document state changed:', event);
+
+    // OnlyOffice sends event.data = true when document has uncommitted changes
+    // event.data = false means all changes have been committed (auto-saved internally)
+    if (event && event.data === true) {
+      console.log('⚠️ Document has uncommitted changes (editing in progress)');
+      this.hasUncommittedChanges = true;
+    } else if (event && event.data === false) {
+      console.log('✅ All changes committed (saved internally, safe to close)');
+      this.hasUncommittedChanges = false;
+    }
   }
 
   onError(event: any) {

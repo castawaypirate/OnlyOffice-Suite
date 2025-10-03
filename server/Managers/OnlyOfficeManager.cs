@@ -178,13 +178,77 @@ public class OnlyOfficeManager
     }
 
     // Business logic helper methods
-
     private string GenerateDocumentKey(FileEntity fileEntity)
     {
         // Generate a unique key based on file ID and last modified date
         // This ensures the key changes when the document is edited via OnlyOffice callback
         var keySource = $"file-{fileEntity.Id}-{fileEntity.LastModifiedAt:yyyyMMddHHmmss}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(keySource)).Replace("=", "").Replace("+", "-").Replace("/", "_");
+    }
+
+    // Send forcesave command to OnlyOffice Command Service
+    public async Task<ForceSaveCommandResult> SendForceSaveCommandAsync(string documentKey)
+    {
+        var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
+        var jwtSecret = _configuration["OnlyOffice:JwtSecret"];
+
+        if (string.IsNullOrEmpty(documentServerUrl))
+        {
+            throw new InvalidOperationException("OnlyOffice DocumentServerUrl not configured");
+        }
+
+        if (string.IsNullOrEmpty(jwtSecret))
+        {
+            throw new InvalidOperationException("OnlyOffice JwtSecret not configured");
+        }
+
+        // Build command service URL
+        var commandUrl = $"{documentServerUrl.TrimEnd('/')}/coauthoring/CommandService.ashx";
+
+        // Create command payload
+        var commandPayload = new
+        {
+            c = "forcesave",
+            key = documentKey
+        };
+
+        // Generate JWT token for the command
+        var token = CreateJwt(commandPayload, jwtSecret);
+
+        // Create request body with token
+        var requestBody = new
+        {
+            c = commandPayload.c,
+            key = commandPayload.key,
+            token = token
+        };
+
+        using (var httpClient = new HttpClient())
+        {
+            var jsonSettings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var jsonContent = JsonConvert.SerializeObject(requestBody, jsonSettings);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.PostAsync(commandUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"[FORCESAVE] Command URL: {commandUrl}");
+            Console.WriteLine($"[FORCESAVE] Request: {jsonContent}");
+            Console.WriteLine($"[FORCESAVE] Response: {responseContent}");
+
+            var result = JsonConvert.DeserializeObject<ForceSaveCommandResult>(responseContent);
+
+            if (result == null)
+            {
+                return new ForceSaveCommandResult { Error = 1, Message = "Failed to parse response" };
+            }
+
+            return result;
+        }
     }
 
     private string GetFileExtension(string fileName)
@@ -388,4 +452,11 @@ public class FileDownloadResult
     public byte[] Content { get; set; } = Array.Empty<byte>();
     public string ContentType { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
+}
+
+public class ForceSaveCommandResult
+{
+    public int Error { get; set; }
+    public string? Key { get; set; }
+    public string? Message { get; set; }
 }
