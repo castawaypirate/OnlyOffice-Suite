@@ -7,9 +7,13 @@ public class BaseController : ControllerBase
     private const string UserIdSessionKey = "UserId";
     private const string UsernameSessionKey = "Username";
 
-    protected int? GetCurrentUserId()
+    protected Guid? GetCurrentUserId()
     {
-        return HttpContext.Session.GetInt32(UserIdSessionKey);
+        var userIdString = HttpContext.Session.GetString(UserIdSessionKey);
+        if (string.IsNullOrEmpty(userIdString))
+            return null;
+
+        return Guid.TryParse(userIdString, out var userId) ? userId : null;
     }
 
     protected string? GetCurrentUsername()

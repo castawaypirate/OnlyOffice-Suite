@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using OnlyOfficeServer.Managers;
 using OnlyOfficeServer.Repositories;
 using OnlyOfficeServer.Data;
+using OnlyOfficeServer.Models;
 
 namespace OnlyOfficeServer.Controllers;
 
@@ -16,7 +17,7 @@ public class OnlyOfficeController : BaseController
         _installationManager = installationManager;
     }
     [HttpGet("download/{id}")]
-    public async Task<IActionResult> DownloadFile(int id)
+    public async Task<IActionResult> DownloadFile(Guid id)
     {
         // Manual using statement for resource management
         using (var repository = new OnlyOfficeRepository())
@@ -27,9 +28,7 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                // Create InstallationRepository for consistency with config endpoint
-                using var installationRepository = new InstallationRepository();
-                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
                 var fileResult = await manager.GetFileForDownloadAsync(id);
                 
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
@@ -46,7 +45,7 @@ public class OnlyOfficeController : BaseController
     }
 
     [HttpGet("config/{id}")]
-    public async Task<IActionResult> GetConfig(int id)
+    public async Task<IActionResult> GetConfig(Guid id)
     {
         var authCheck = RequireAuthentication();
         if (authCheck is not OkResult)
@@ -63,21 +62,13 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                // Create InstallationRepository for Approach 3
-                using var installationRepository = new InstallationRepository();
-                var manager = new OnlyOfficeManager(repository, configuration!, context!, installationRepository);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
 
                 // Get ApplicationId from configuration
-                var applicationId = configuration.GetValue<int>("ApplicationId");
+                var applicationId = configuration!.GetValue<int>("ApplicationId");
 
-                // **APPROACH 1: Using dedicated InstallationManager (injected via DI)**
+                // Get base URL from InstallationManager
                 var baseUrl = await _installationManager.GetApplicationUrlAsync(applicationId);
-
-                // **APPROACH 2: Using OnlyOfficeManager installation methods (via AppDbContext)**
-                // var baseUrl = await manager.GetApplicationUrlAsync(applicationId);
-
-                // **APPROACH 3: Using OnlyOfficeManager installation methods (via InstallationRepository)**
-                // var baseUrl = await manager.GetApplicationUrlViaRepositoryAsync(applicationId);
 
                 var config = await manager.GetConfigAsync(id, baseUrl);
 
@@ -102,7 +93,8 @@ public class OnlyOfficeController : BaseController
                         documentType = config.DocumentType,
                         editorConfig = new
                         {
-                            mode = config.EditorConfig.Mode
+                            mode = config.EditorConfig.Mode,
+                            callbackUrl = config.EditorConfig.CallbackUrl
                         },
                         token = config.Token,
                     },
@@ -127,4 +119,104 @@ public class OnlyOfficeController : BaseController
         }
     }
 
+    [HttpPost("forcesave/{id}")]
+    public async Task<IActionResult> ForceSave(Guid id, [FromBody] ForceSaveRequest request)
+    {
+        var authCheck = RequireAuthentication();
+        if (authCheck is not OkResult)
+            return authCheck;
+
+        var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
+
+        try
+        {
+            logger?.LogInformation("ForceSave requested for file ID: {FileId}, Key: {Key}", id, request.Key);
+
+            if (string.IsNullOrEmpty(request.Key))
+            {
+                return BadRequest(new { error = 1, message = "Document key is required" });
+            }
+
+            // Get configuration from appsettings
+            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+            using (var repository = new OnlyOfficeRepository())
+            {
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+
+                logger?.LogInformation("Calling OnlyOffice Command Service with key: {Key}", request.Key);
+
+                // Call OnlyOffice Command Service with the key from frontend
+                var result = await manager.SendForceSaveCommandAsync(request.Key);
+
+                logger?.LogInformation("ForceSave command result - Error: {Error}", result.Error);
+
+                return Ok(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "ForceSave failed for file ID: {FileId}", id);
+            return StatusCode(500, new { error = 1, message = $"ForceSave failed: {ex.Message}" });
+        }
+    }
+
+    [HttpPost("callback/{id}")]
+    public async Task<IActionResult> HandleCallback(Guid id, [FromBody] CallbackRequest request)
+    {
+        var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
+        var requestId = Guid.NewGuid().ToString("N")[..8];
+
+        logger?.LogInformation("=== CALLBACK START === Request ID: {RequestId}, File ID: {FileId}, Timestamp: {Timestamp}",
+            requestId, id, DateTime.UtcNow);
+
+        try
+        {
+            // Log all incoming request data
+            logger?.LogInformation("Callback Request Details - ID: {RequestId}, Status: {Status}, Key: {Key}, URL: {Url}, Users: {Users}",
+                requestId, request.Status, request.Key, request.Url ?? "null",
+                request.Users != null ? string.Join(",", request.Users) : "null");
+
+            // Log headers for debugging
+            logger?.LogInformation("Request Headers - ID: {RequestId}, Content-Type: {ContentType}, User-Agent: {UserAgent}",
+                requestId, Request.ContentType, Request.Headers.UserAgent.ToString());
+
+            // Get configuration from appsettings
+            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+            // Manual using statement for resource management
+            using (var repository = new OnlyOfficeRepository())
+            {
+                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+
+                logger?.LogInformation("Processing callback - ID: {RequestId}, About to call ProcessCallbackAsync", requestId);
+
+                var result = await manager.ProcessCallbackAsync(id, request);
+
+                logger?.LogInformation("Callback processing result - ID: {RequestId}, Success: {Result}", requestId, result);
+
+                var response = new CallbackResponse { Error = result ? 0 : 1, Message = result ? null : "Callback processing failed" };
+
+                logger?.LogInformation("=== CALLBACK END === Request ID: {RequestId}, Response: {Response}",
+                    requestId, System.Text.Json.JsonSerializer.Serialize(response));
+
+                return Ok(response);
+            }
+        }
+        catch (FileNotFoundException ex)
+        {
+            logger?.LogError("FileNotFoundException in callback - ID: {RequestId}, Error: {Error}", requestId, ex.Message);
+            var response = new CallbackResponse { Error = 1, Message = ex.Message };
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Exception in callback - ID: {RequestId}, Error: {Error}", requestId, ex.Message);
+            // Always return 200 OK to OnlyOffice, but with error code
+            var response = new CallbackResponse { Error = 1, Message = $"Callback failed: {ex.Message}" };
+            return Ok(response);
+        }
+    }
 }

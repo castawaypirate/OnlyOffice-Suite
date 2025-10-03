@@ -10,13 +10,13 @@ export interface LoginRequest {
 
 export interface AuthResponse {
   message: string;
-  userId?: number;
+  userId?: string;
   username?: string;
 }
 
 export interface AuthStatus {
   isAuthenticated: boolean;
-  userId?: number;
+  userId?: string;
   username?: string;
 }
 

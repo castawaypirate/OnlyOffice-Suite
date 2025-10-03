@@ -127,9 +127,9 @@ export class FileListComponent implements OnInit {
     });
   }
 
-  openDocument(fileId: number | string) {
-    // Only allow opening saved files (numeric IDs)
-    if (typeof fileId === 'number') {
+  openDocument(fileId: string) {
+    // Only allow opening saved files (Guid format: 36 chars with dashes)
+    if (fileId.length === 36 && fileId.includes('-')) {
       this.router.navigate(['/editor', fileId]);
     }
   }

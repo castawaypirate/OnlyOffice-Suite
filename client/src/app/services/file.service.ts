@@ -46,9 +46,11 @@ export class FileService {
     );
   }
 
-  downloadFile(fileId: number): Observable<Blob> {
+  downloadFile(fileId: string): Observable<Blob> {
+    // Add timestamp to bust browser cache
+    const timestamp = new Date().getTime();
     return this.http.get(
-      `${this.apiUrl}/files/${fileId}/download`,
+      `${this.apiUrl}/files/${fileId}/download?t=${timestamp}`,
       {
         responseType: 'blob',
         withCredentials: true
@@ -56,7 +58,7 @@ export class FileService {
     );
   }
 
-  deleteFile(fileId: number | string): Observable<{message: string}> {
+  deleteFile(fileId: string): Observable<{message: string}> {
     return this.http.delete<{message: string}>(
       `${this.apiUrl}/files/${fileId}`,
       this.getHttpOptionsWithHeaders()
@@ -71,18 +73,25 @@ export class FileService {
     );
   }
 
-  getOnlyOfficeConfig(fileId: number): Observable<IOnlyOfficeConfig> {
+  getOnlyOfficeConfig(fileId: string): Observable<IOnlyOfficeConfig> {
     return this.http.get<IOnlyOfficeConfig>(
       `${this.apiUrl}/onlyoffice/config/${fileId}`,
       this.getHttpOptionsWithHeaders()
     );
   }
 
+  forceSaveDocument(fileId: string, documentKey: string): Observable<{error: number, message?: string}> {
+    return this.http.post<{error: number, message?: string}>(
+      `${this.apiUrl}/onlyoffice/forcesave/${fileId}`,
+      { key: documentKey },
+      this.getHttpOptionsWithHeaders()
+    );
+  }
 
   // Helper method to trigger file download in browser
-  downloadFileAsBlob(fileId: number | string, fileName: string): void {
-    // Only allow downloads of saved files (numeric IDs)
-    if (typeof fileId !== 'number') {
+  downloadFileAsBlob(fileId: string, fileName: string): void {
+    // Only allow downloads of saved files (Guid format: 36 chars with dashes)
+    if (fileId.length !== 36 || !fileId.includes('-')) {
       console.error('Cannot download temporary files');
       return;
     }

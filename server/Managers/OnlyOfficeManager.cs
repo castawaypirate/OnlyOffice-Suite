@@ -15,17 +15,15 @@ public class OnlyOfficeManager
     private readonly IOnlyOfficeRepository _repository;
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _context;
-    private readonly IInstallationRepository _installationRepository;
 
-    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context, IInstallationRepository installationRepository)
+    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _context = context ?? throw new ArgumentNullException(nameof(context));
-        _installationRepository = installationRepository ?? throw new ArgumentNullException(nameof(installationRepository));
     }
 
-    public async Task<OnlyOfficeConfigResult> GetConfigAsync(int fileId, string baseUrl)
+    public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl)
     {
         // Business logic: Get file and validate
         var fileEntity = await _repository.GetFileByIdAsync(fileId);
@@ -41,7 +39,8 @@ public class OnlyOfficeManager
         }
 
         // Use configured host URL for Docker compatibility, fallback to baseUrl
-        var hostUrl = _configuration["OnlyOffice:HostUrl"] ?? baseUrl;
+        // var hostUrl = baseUrl;
+        var hostUrl = "http://host.docker.internal:5142"; //For docker
         var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
 
         // Business logic: Build OnlyOffice configuration
@@ -63,9 +62,10 @@ public class OnlyOfficeManager
             DocumentType = GetDocumentType(fileEntity.OriginalName),
             EditorConfig = new EditorConfig
             {
-                Mode = "edit"
+                Mode = "edit",
+                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}"
             },
-            OnlyOfficeServerUrl = documentServerUrl
+            OnlyOfficeServerUrl = documentServerUrl ?? string.Empty
         };
 
         // Generate JWT token for the complete config
@@ -74,7 +74,7 @@ public class OnlyOfficeManager
         return config;
     }
 
-    public async Task<FileDownloadResult> GetFileForDownloadAsync(int fileId)
+    public async Task<FileDownloadResult> GetFileForDownloadAsync(Guid fileId)
     {
         // Business logic: Get file and validate
         var fileEntity = await _repository.GetFileByIdAsync(fileId);
@@ -130,7 +130,8 @@ public class OnlyOfficeManager
             documentType = config.DocumentType,
             editorConfig = new
             {
-                mode = config.EditorConfig.Mode
+                mode = config.EditorConfig.Mode,
+                callbackUrl = config.EditorConfig.CallbackUrl
             }
         };
 
@@ -179,8 +180,75 @@ public class OnlyOfficeManager
     // Business logic helper methods
     private string GenerateDocumentKey(FileEntity fileEntity)
     {
-        // Generate unique key for OnlyOffice document versioning
-        return $"file-{fileEntity.Id}-{DateTime.UtcNow:yyyyMMddHHmmssffff}";
+        // Generate a unique key based on file ID and last modified date
+        // This ensures the key changes when the document is edited via OnlyOffice callback
+        var keySource = $"file-{fileEntity.Id}-{fileEntity.LastModifiedAt:yyyyMMddHHmmss}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(keySource)).Replace("=", "").Replace("+", "-").Replace("/", "_");
+    }
+
+    // Send forcesave command to OnlyOffice Command Service
+    public async Task<ForceSaveCommandResult> SendForceSaveCommandAsync(string documentKey)
+    {
+        var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
+        var jwtSecret = _configuration["OnlyOffice:JwtSecret"];
+
+        if (string.IsNullOrEmpty(documentServerUrl))
+        {
+            throw new InvalidOperationException("OnlyOffice DocumentServerUrl not configured");
+        }
+
+        if (string.IsNullOrEmpty(jwtSecret))
+        {
+            throw new InvalidOperationException("OnlyOffice JwtSecret not configured");
+        }
+
+        // Build command service URL
+        var commandUrl = $"{documentServerUrl.TrimEnd('/')}/coauthoring/CommandService.ashx";
+
+        // Create command payload
+        var commandPayload = new
+        {
+            c = "forcesave",
+            key = documentKey
+        };
+
+        // Generate JWT token for the command
+        var token = CreateJwt(commandPayload, jwtSecret);
+
+        // Create request body with token
+        var requestBody = new
+        {
+            c = commandPayload.c,
+            key = commandPayload.key,
+            token = token
+        };
+
+        using (var httpClient = new HttpClient())
+        {
+            var jsonSettings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var jsonContent = JsonConvert.SerializeObject(requestBody, jsonSettings);
+            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            var response = await httpClient.PostAsync(commandUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"[FORCESAVE] Command URL: {commandUrl}");
+            Console.WriteLine($"[FORCESAVE] Request: {jsonContent}");
+            Console.WriteLine($"[FORCESAVE] Response: {responseContent}");
+
+            var result = JsonConvert.DeserializeObject<ForceSaveCommandResult>(responseContent);
+
+            if (result == null)
+            {
+                return new ForceSaveCommandResult { Error = 1, Message = "Failed to parse response" };
+            }
+
+            return result;
+        }
     }
 
     private string GetFileExtension(string fileName)
@@ -220,42 +288,129 @@ public class OnlyOfficeManager
         };
     }
 
-    // **Installation methods using AppDbContext (Approach 2)**
-    public async Task<string> GetApplicationUrlAsync(int applicationId)
+    public async Task<bool> ProcessCallbackAsync(Guid fileId, CallbackRequest callback)
     {
-        var installation = await _context.Installations
-            .FirstOrDefaultAsync(i => i.ApplicationId == applicationId);
-
-        if (installation == null)
+        try
         {
-            throw new InvalidOperationException($"Installation with ApplicationId '{applicationId}' not found in database");
+            Console.WriteLine($"[CALLBACK DEBUG] Processing callback for file {fileId}, Status: {callback.Status}");
+
+            // Get the file entity directly from _context so it's tracked by EF Core
+            // This is critical - using _repository would fetch from a different context!
+            var fileEntity = await _context.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+            if (fileEntity == null)
+            {
+                Console.WriteLine($"[CALLBACK ERROR] File with ID {fileId} not found");
+                throw new FileNotFoundException($"File with ID {fileId} not found");
+            }
+
+            Console.WriteLine($"[CALLBACK DEBUG] File found: {fileEntity.OriginalName}, LastModifiedAt: {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
+            // Validate the document key matches
+            var expectedKey = GenerateDocumentKey(fileEntity);
+            Console.WriteLine($"[CALLBACK DEBUG] Expected key: {expectedKey}");
+            Console.WriteLine($"[CALLBACK DEBUG] Received key: {callback.Key}");
+
+            if (callback.Key != expectedKey)
+            {
+                Console.WriteLine($"[CALLBACK ERROR] Document key mismatch! Expected: {expectedKey}, Got: {callback.Key}");
+                throw new UnauthorizedAccessException($"Document key mismatch for file {fileId}");
+            }
+
+            Console.WriteLine($"[CALLBACK DEBUG] Key validation passed");
+
+            // Handle different status codes
+            switch (callback.Status)
+            {
+                case 1: // Document being edited
+                    // Just log or update last access time
+                    return true;
+
+                case 2: // Document ready for saving
+                    Console.WriteLine($"[CALLBACK DEBUG] Status 2 - Document ready for saving");
+                    if (string.IsNullOrEmpty(callback.Url))
+                    {
+                        Console.WriteLine($"[CALLBACK ERROR] No download URL provided");
+                        throw new InvalidOperationException("No download URL provided for saving");
+                    }
+
+                    Console.WriteLine($"[CALLBACK DEBUG] Downloading from: {callback.Url}");
+
+                    // Download the edited document
+                    using (var httpClient = new HttpClient())
+                    {
+                        var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+                        Console.WriteLine($"[CALLBACK DEBUG] Downloaded {editedFileBytes.Length} bytes");
+
+                        // Replace the original file with the edited version
+                        Console.WriteLine($"[CALLBACK DEBUG] Writing to: {fileEntity.FilePath}");
+                        await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                        Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
+
+                        // Update LastModifiedAt to change the document key for next edit session
+                        var oldModifiedAt = fileEntity.LastModifiedAt;
+                        fileEntity.LastModifiedAt = DateTime.UtcNow;
+                        Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+                    }
+
+                    return true;
+
+                case 3: // Document saving error
+                    // Log the error but don't fail
+                    return true;
+
+                case 4: // Document closed without changes
+                    // Nothing to do
+                    return true;
+
+                case 6: // Document force saved
+                    Console.WriteLine($"[CALLBACK DEBUG] Status 6 - Document force saved");
+                    if (!string.IsNullOrEmpty(callback.Url))
+                    {
+                        Console.WriteLine($"[CALLBACK DEBUG] Downloading from: {callback.Url}");
+                        using (var httpClient = new HttpClient())
+                        {
+                            var editedFileBytes = await httpClient.GetByteArrayAsync(callback.Url);
+                            Console.WriteLine($"[CALLBACK DEBUG] Downloaded {editedFileBytes.Length} bytes");
+
+                            Console.WriteLine($"[CALLBACK DEBUG] Writing to: {fileEntity.FilePath}");
+                            await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
+                            Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
+
+                            // Update LastModifiedAt to change the document key for next edit session
+                            var oldModifiedAt = fileEntity.LastModifiedAt;
+                            fileEntity.LastModifiedAt = DateTime.UtcNow;
+                            Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
+                            await _context.SaveChangesAsync();
+                            Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[CALLBACK DEBUG] No URL provided for status 6");
+                    }
+                    return true;
+
+                case 7: // Force save error
+                    // Log the error but don't fail
+                    return true;
+
+                default:
+                    Console.WriteLine($"[CALLBACK DEBUG] Unknown status: {callback.Status}");
+                    // Unknown status, log but return success
+                    return true;
+            }
         }
-
-        return installation.FullUrl;
-    }
-
-    public async Task<Installation?> GetInstallationByApplicationIdAsync(int applicationId)
-    {
-        return await _context.Installations
-            .FirstOrDefaultAsync(i => i.ApplicationId == applicationId);
-    }
-
-    // **Installation methods using InstallationRepository (Approach 3)**
-    public async Task<string> GetApplicationUrlViaRepositoryAsync(int applicationId)
-    {
-        var installation = await _installationRepository.GetByApplicationIdAsync(applicationId);
-
-        if (installation == null)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException($"Installation with ApplicationId '{applicationId}' not found in database");
+            Console.WriteLine($"[CALLBACK ERROR] Exception: {ex.GetType().Name} - {ex.Message}");
+            Console.WriteLine($"[CALLBACK ERROR] StackTrace: {ex.StackTrace}");
+            // Re-throw to be handled by controller
+            throw;
         }
-
-        return installation.FullUrl;
-    }
-
-    public async Task<Installation?> GetInstallationByApplicationIdViaRepositoryAsync(int applicationId)
-    {
-        return await _installationRepository.GetByApplicationIdAsync(applicationId);
     }
 
 }
@@ -289,6 +444,7 @@ public class PermissionsConfig
 public class EditorConfig
 {
     public string Mode { get; set; } = string.Empty;
+    public string? CallbackUrl { get; set; }
 }
 
 public class FileDownloadResult
@@ -296,4 +452,11 @@ public class FileDownloadResult
     public byte[] Content { get; set; } = Array.Empty<byte>();
     public string ContentType { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
+}
+
+public class ForceSaveCommandResult
+{
+    public int Error { get; set; }
+    public string? Key { get; set; }
+    public string? Message { get; set; }
 }

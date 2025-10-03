@@ -73,10 +73,9 @@ public class FilesController : BaseController
             {
                 id = (object)f.Id,
                 name = f.OriginalName,
-                filename = f.Filename,
+                filename = (string?)f.Filename,
                 size = _fileService.GetFileSize(f.FilePath),
                 uploadDate = f.UploadedAt,
-                token = f.Token,
                 isTemporary = false
             });
 
@@ -86,10 +85,9 @@ public class FilesController : BaseController
             {
                 id = (object)tf.Id,
                 name = tf.OriginalName,
-                filename = (string?)null,
+                filename = (string?)tf.OriginalName,
                 size = _fileService.GetFileSize(tf.TempFilePath),
                 uploadDate = tf.UploadedAt,
-                token = (string?)null,
                 isTemporary = true
             });
 
@@ -116,7 +114,7 @@ public class FilesController : BaseController
     }
 
     [HttpGet("{id}/download")]
-    public async Task<IActionResult> DownloadFile(int id)
+    public async Task<IActionResult> DownloadFile(Guid id)
     {
         var authCheck = RequireAuthentication();
         if (authCheck is not OkResult)
@@ -126,25 +124,45 @@ public class FilesController : BaseController
 
         try
         {
+            Console.WriteLine($"[DOWNLOAD DEBUG] User {userId} downloading file {id}");
+
             var fileEntity = await _fileService.GetFileByIdAsync(id, userId);
-            
+
             if (fileEntity == null)
             {
+                Console.WriteLine($"[DOWNLOAD DEBUG] File {id} not found for user {userId}");
                 return NotFound(new { message = "File not found" });
             }
 
+            Console.WriteLine($"[DOWNLOAD DEBUG] File found: {fileEntity.OriginalName}");
+            Console.WriteLine($"[DOWNLOAD DEBUG] Path: {fileEntity.FilePath}");
+            Console.WriteLine($"[DOWNLOAD DEBUG] LastModifiedAt: {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+
             if (!System.IO.File.Exists(fileEntity.FilePath))
             {
+                Console.WriteLine($"[DOWNLOAD DEBUG] Physical file not found at: {fileEntity.FilePath}");
                 return NotFound(new { message = "File not found on disk" });
             }
 
             var fileBytes = await System.IO.File.ReadAllBytesAsync(fileEntity.FilePath);
+            Console.WriteLine($"[DOWNLOAD DEBUG] Read {fileBytes.Length} bytes from disk");
+
             var contentType = GetContentType(fileEntity.OriginalName);
+
+            // Add cache-control headers to prevent browser caching
+            Response.Headers.Append("Cache-Control", "no-store, no-cache, must-revalidate");
+            Response.Headers.Append("Pragma", "no-cache");
+            Response.Headers.Append("Expires", "0");
+
+            // Add ETag based on LastModifiedAt to force fresh downloads
+            var etag = $"\"{fileEntity.LastModifiedAt:yyyyMMddHHmmss}\"";
+            Response.Headers.Append("ETag", etag);
 
             return File(fileBytes, contentType, fileEntity.OriginalName);
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[DOWNLOAD ERROR] {ex.Message}");
             return StatusCode(500, new { message = "File download failed", error = ex.Message });
         }
     }
@@ -169,7 +187,6 @@ public class FilesController : BaseController
                 filename = fileEntity.Filename,
                 size = _fileService.GetFileSize(fileEntity.FilePath),
                 uploadedAt = fileEntity.UploadedAt,
-                token = fileEntity.Token,
                 isTemporary = false,
                 message = "File saved successfully"
             });
@@ -195,8 +212,8 @@ public class FilesController : BaseController
 
         try
         {
-            // Try to parse as integer for saved files
-            if (int.TryParse(id, out var fileId))
+            // Try to parse as Guid for saved files
+            if (Guid.TryParse(id, out var fileId))
             {
                 var success = await _fileService.DeleteFileAsync(fileId, userId);
                 if (success)

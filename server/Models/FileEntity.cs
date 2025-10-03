@@ -4,9 +4,9 @@ namespace OnlyOfficeServer.Models;
 
 public class FileEntity
 {
-    public int Id { get; set; }
-    
-    public int UserId { get; set; }
+    public Guid Id { get; set; }
+
+    public Guid UserId { get; set; }
     
     [Required]
     [MaxLength(255)]
@@ -19,15 +19,11 @@ public class FileEntity
     [Required]
     [MaxLength(500)]
     public string FilePath { get; set; } = string.Empty;
-    
-    [Required]
-    [MaxLength(100)]
-    public string Token { get; set; } = string.Empty;
-    
-    public DateTime TokenExpires { get; set; }
-    
+
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
-    
+
+    public DateTime LastModifiedAt { get; set; } = DateTime.UtcNow;
+
     // Navigation property
     public User User { get; set; } = null!;
 }
