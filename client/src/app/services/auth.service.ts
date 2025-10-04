@@ -25,11 +25,40 @@ export interface AuthStatus {
 })
 export class AuthService {
   private readonly apiUrl = 'http://localhost:5142/api';
+  private readonly AUTH_STORAGE_KEY = 'onlyoffice_auth';
   private currentUserSubject = new BehaviorSubject<AuthStatus>({ isAuthenticated: false });
   public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient) {
+    // Load auth state from localStorage immediately (synchronous, no delay)
+    this.loadAuthFromStorage();
+    // Then verify with server in background
     this.checkAuthStatus();
+  }
+
+  private loadAuthFromStorage(): void {
+    try {
+      const storedAuth = localStorage.getItem(this.AUTH_STORAGE_KEY);
+      if (storedAuth) {
+        const authStatus: AuthStatus = JSON.parse(storedAuth);
+        this.currentUserSubject.next(authStatus);
+      }
+    } catch (error) {
+      console.error('Failed to load auth from storage:', error);
+      localStorage.removeItem(this.AUTH_STORAGE_KEY);
+    }
+  }
+
+  private saveAuthToStorage(authStatus: AuthStatus): void {
+    try {
+      localStorage.setItem(this.AUTH_STORAGE_KEY, JSON.stringify(authStatus));
+    } catch (error) {
+      console.error('Failed to save auth to storage:', error);
+    }
+  }
+
+  private clearAuthFromStorage(): void {
+    localStorage.removeItem(this.AUTH_STORAGE_KEY);
   }
 
   private getHttpOptions() {
@@ -46,11 +75,13 @@ export class AuthService {
       .pipe(
         tap(response => {
           if (response.userId && response.username) {
-            this.currentUserSubject.next({
+            const authStatus: AuthStatus = {
               isAuthenticated: true,
               userId: response.userId,
               username: response.username
-            });
+            };
+            this.currentUserSubject.next(authStatus);
+            this.saveAuthToStorage(authStatus);
           }
         })
       );
@@ -61,6 +92,7 @@ export class AuthService {
       .pipe(
         tap(() => {
           this.currentUserSubject.next({ isAuthenticated: false });
+          this.clearAuthFromStorage();
         })
       );
   }
@@ -70,9 +102,18 @@ export class AuthService {
       .subscribe({
         next: (status) => {
           this.currentUserSubject.next(status);
+          // Sync localStorage with server response
+          if (status.isAuthenticated) {
+            this.saveAuthToStorage(status);
+          } else {
+            // Session expired on server, clear local storage
+            this.clearAuthFromStorage();
+          }
         },
         error: () => {
+          // Server error or network issue, clear everything
           this.currentUserSubject.next({ isAuthenticated: false });
+          this.clearAuthFromStorage();
         }
       });
   }

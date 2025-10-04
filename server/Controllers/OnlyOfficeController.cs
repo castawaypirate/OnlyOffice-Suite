@@ -70,7 +70,7 @@ public class OnlyOfficeController : BaseController
                 // Get base URL from InstallationManager
                 var baseUrl = await _installationManager.GetApplicationUrlAsync(applicationId);
 
-                var config = await manager.GetConfigAsync(id, baseUrl);
+                var config = await manager.GetConfigAsync(id, baseUrl, userId);
 
                 // Convert business result to API response format (now includes JWT token)
                 var response = new
@@ -94,7 +94,12 @@ public class OnlyOfficeController : BaseController
                         editorConfig = new
                         {
                             mode = config.EditorConfig.Mode,
-                            callbackUrl = config.EditorConfig.CallbackUrl
+                            callbackUrl = config.EditorConfig.CallbackUrl,
+                            user = config.EditorConfig.User != null ? new
+                            {
+                                id = config.EditorConfig.User.Id,
+                                name = config.EditorConfig.User.Name
+                            } : null
                         },
                         token = config.Token,
                     },

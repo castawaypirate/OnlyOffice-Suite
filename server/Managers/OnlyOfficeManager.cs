@@ -23,7 +23,7 @@ public class OnlyOfficeManager
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl)
+    public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl, Guid userId)
     {
         // Business logic: Get file and validate
         var fileEntity = await _repository.GetFileByIdAsync(fileId);
@@ -42,6 +42,13 @@ public class OnlyOfficeManager
         // var hostUrl = baseUrl;
         var hostUrl = "http://host.docker.internal:5142"; //For docker
         var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
+
+        // Get user information
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            throw new FileNotFoundException($"User with ID {userId} not found");
+        }
 
         // Business logic: Build OnlyOffice configuration
         var config = new OnlyOfficeConfigResult
@@ -63,7 +70,12 @@ public class OnlyOfficeManager
             EditorConfig = new EditorConfig
             {
                 Mode = "edit",
-                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}"
+                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}",
+                User = new UserConfig
+                {
+                    Id = user.Id.ToString(),
+                    Name = user.Username
+                }
             },
             OnlyOfficeServerUrl = documentServerUrl ?? string.Empty
         };
@@ -131,7 +143,12 @@ public class OnlyOfficeManager
             editorConfig = new
             {
                 mode = config.EditorConfig.Mode,
-                callbackUrl = config.EditorConfig.CallbackUrl
+                callbackUrl = config.EditorConfig.CallbackUrl,
+                user = config.EditorConfig.User != null ? new
+                {
+                    id = config.EditorConfig.User.Id,
+                    name = config.EditorConfig.User.Name
+                } : null
             }
         };
 
@@ -445,6 +462,13 @@ public class EditorConfig
 {
     public string Mode { get; set; } = string.Empty;
     public string? CallbackUrl { get; set; }
+    public UserConfig? User { get; set; }
+}
+
+public class UserConfig
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
 
 public class FileDownloadResult
