@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IConfig } from '@onlyoffice/document-editor-angular';
 import { FileService } from '../services/file.service';
 import { IOnlyOfficeConfig } from '../models';
+import { SignalrService } from '../services/signalr.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-document-editor-page',
@@ -10,7 +12,7 @@ import { IOnlyOfficeConfig } from '../models';
   styleUrls: ['./document-editor-page.component.css'],
   standalone: false
 })
-export class DocumentEditorPageComponent implements OnInit {
+export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   fileId!: string;
   fileName = '';
   documentServerUrl = '';
@@ -19,15 +21,61 @@ export class DocumentEditorPageComponent implements OnInit {
   docEditor: any = null; // Reference to OnlyOffice editor instance
   hasUncommittedChanges = true; // Track if document has uncommitted changes (starts true until first save)
 
+  private signalrSubscriptions: Subscription[] = [];
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private fileService: FileService
+    private fileService: FileService,
+    private signalrService: SignalrService
   ) {}
 
   ngOnInit() {
     this.fileId = this.route.snapshot.paramMap.get('fileId') || '';
+    this.setupSignalR();
     this.loadFileData();
+  }
+
+  ngOnDestroy() {
+    // Unsubscribe from all SignalR events
+    this.signalrSubscriptions.forEach(sub => sub.unsubscribe());
+
+    // Leave the file room
+    if (this.fileId) {
+      this.signalrService.leaveFileRoom(this.fileId).catch(err => {
+        console.error('[SIGNALR] Error leaving file room on destroy:', err);
+      });
+    }
+  }
+
+  private setupSignalR() {
+    // Start SignalR connection
+    this.signalrService.startConnection()
+      .then(() => {
+        // Join the room for this specific file
+        return this.signalrService.joinFileRoom(this.fileId);
+      })
+      .then(() => {
+        console.log(`[SIGNALR] Successfully joined room for file ${this.fileId}`);
+
+        // Subscribe to callback events
+        const callbackSub = this.signalrService.callbackReceived$.subscribe(data => {
+          console.log('[COMPONENT] Callback received notification:', data);
+        });
+
+        const savedSub = this.signalrService.documentSaved$.subscribe(data => {
+          console.log('[COMPONENT] Document saved notification:', data);
+        });
+
+        const forceSavedSub = this.signalrService.documentForceSaved$.subscribe(data => {
+          console.log('[COMPONENT] Document force saved notification:', data);
+        });
+
+        this.signalrSubscriptions.push(callbackSub, savedSub, forceSavedSub);
+      })
+      .catch(err => {
+        console.error('[SIGNALR] Failed to setup SignalR:', err);
+      });
   }
 
   private loadFileData() {

@@ -3,6 +3,7 @@ using OnlyOfficeServer.Data;
 using OnlyOfficeServer.Services;
 using OnlyOfficeServer.Repositories;
 using OnlyOfficeServer.Managers;
+using OnlyOfficeServer.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,9 @@ builder.Services.AddScoped<InstallationManager>();
 
 // Add controllers
 builder.Services.AddControllers();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -65,5 +69,6 @@ app.UseSession();
 app.UseHttpsRedirection();
 
 app.MapControllers();
+app.MapHub<OnlyOfficeHub>("/hubs/onlyoffice");
 
 app.Run();

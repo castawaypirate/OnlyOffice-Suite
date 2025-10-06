@@ -7,6 +7,8 @@ using Newtonsoft.Json;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
 using OnlyOfficeServer.Data;
+using Microsoft.AspNetCore.SignalR;
+using OnlyOfficeServer.Hubs;
 
 namespace OnlyOfficeServer.Managers;
 
@@ -15,12 +17,14 @@ public class OnlyOfficeManager
     private readonly IOnlyOfficeRepository _repository;
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _context;
+    private readonly IHubContext<OnlyOfficeHub>? _hubContext;
 
-    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context)
+    public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context, IHubContext<OnlyOfficeHub>? hubContext = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _hubContext = hubContext;
     }
 
     public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl, Guid userId)
@@ -39,8 +43,8 @@ public class OnlyOfficeManager
         }
 
         // Use configured host URL for Docker compatibility, fallback to baseUrl
-        // var hostUrl = baseUrl;
-        var hostUrl = "http://host.docker.internal:5142"; //For docker
+        var hostUrl = baseUrl;
+        // var hostUrl = "http://host.docker.internal:5142"; //For docker
         var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
 
         // Get user information
@@ -335,6 +339,18 @@ public class OnlyOfficeManager
 
             Console.WriteLine($"[CALLBACK DEBUG] Key validation passed");
 
+            // Send SignalR notification about callback received
+            if (_hubContext != null)
+            {
+                await _hubContext.Clients.Group($"file-{fileId}").SendAsync("CallbackReceived", new
+                {
+                    fileId = fileId.ToString(),
+                    status = callback.Status,
+                    message = $"Callback received with status {callback.Status}"
+                });
+                Console.WriteLine($"[SIGNALR] Sent CallbackReceived notification for file {fileId}, status {callback.Status}");
+            }
+
             // Handle different status codes
             switch (callback.Status)
             {
@@ -370,6 +386,18 @@ public class OnlyOfficeManager
 
                         await _context.SaveChangesAsync();
                         Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+
+                        // Send SignalR notification about document saved
+                        if (_hubContext != null)
+                        {
+                            await _hubContext.Clients.Group($"file-{fileId}").SendAsync("DocumentSaved", new
+                            {
+                                fileId = fileId.ToString(),
+                                status = callback.Status,
+                                message = "Document saved successfully"
+                            });
+                            Console.WriteLine($"[SIGNALR] Sent DocumentSaved notification for file {fileId}");
+                        }
                     }
 
                     return true;
@@ -403,6 +431,18 @@ public class OnlyOfficeManager
 
                             await _context.SaveChangesAsync();
                             Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+
+                            // Send SignalR notification about force save
+                            if (_hubContext != null)
+                            {
+                                await _hubContext.Clients.Group($"file-{fileId}").SendAsync("DocumentForceSaved", new
+                                {
+                                    fileId = fileId.ToString(),
+                                    status = callback.Status,
+                                    message = "Document force saved successfully"
+                                });
+                                Console.WriteLine($"[SIGNALR] Sent DocumentForceSaved notification for file {fileId}");
+                            }
                         }
                     }
                     else

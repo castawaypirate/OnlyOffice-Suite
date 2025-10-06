@@ -3,6 +3,8 @@ using OnlyOfficeServer.Managers;
 using OnlyOfficeServer.Repositories;
 using OnlyOfficeServer.Data;
 using OnlyOfficeServer.Models;
+using Microsoft.AspNetCore.SignalR;
+using OnlyOfficeServer.Hubs;
 
 namespace OnlyOfficeServer.Controllers;
 
@@ -11,10 +13,12 @@ namespace OnlyOfficeServer.Controllers;
 public class OnlyOfficeController : BaseController
 {
     private readonly InstallationManager _installationManager;
+    private readonly IHubContext<OnlyOfficeHub> _hubContext;
 
-    public OnlyOfficeController(InstallationManager installationManager)
+    public OnlyOfficeController(InstallationManager installationManager, IHubContext<OnlyOfficeHub> hubContext)
     {
         _installationManager = installationManager;
+        _hubContext = hubContext;
     }
     [HttpGet("download/{id}")]
     public async Task<IActionResult> DownloadFile(Guid id)
@@ -28,7 +32,7 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
                 var fileResult = await manager.GetFileForDownloadAsync(id);
                 
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
@@ -62,7 +66,7 @@ public class OnlyOfficeController : BaseController
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
                 var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
-                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
 
                 // Get ApplicationId from configuration
                 var applicationId = configuration!.GetValue<int>("ApplicationId");
@@ -148,7 +152,7 @@ public class OnlyOfficeController : BaseController
 
             using (var repository = new OnlyOfficeRepository())
             {
-                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
 
                 logger?.LogInformation("Calling OnlyOffice Command Service with key: {Key}", request.Key);
 
@@ -194,7 +198,7 @@ public class OnlyOfficeController : BaseController
             // Manual using statement for resource management
             using (var repository = new OnlyOfficeRepository())
             {
-                var manager = new OnlyOfficeManager(repository, configuration!, context!);
+                var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
 
                 logger?.LogInformation("Processing callback - ID: {RequestId}, About to call ProcessCallbackAsync", requestId);
 
