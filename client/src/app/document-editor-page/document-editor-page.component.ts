@@ -233,6 +233,24 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
     } else if (event && event.data === false) {
       console.log('✅ All changes committed (saved internally, safe to close)');
       this.hasUncommittedChanges = false;
+
+      // Auto force-save to ensure physical file is always up-to-date
+      const documentKey = this.config?.document?.key;
+      if (documentKey) {
+        console.log('💾 Triggering auto force-save with key:', documentKey);
+        this.fileService.forceSaveDocument(this.fileId, documentKey, 'auto-save').subscribe({
+          next: (result) => {
+            if (result.error === 0) {
+              console.log('✅ Auto force-save command sent successfully');
+            } else {
+              console.warn('⚠️ Auto force-save command failed:', result.message);
+            }
+          },
+          error: (error) => {
+            console.error('❌ Auto force-save failed:', error);
+          }
+        });
+      }
     }
   }
 

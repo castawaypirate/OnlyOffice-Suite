@@ -454,9 +454,15 @@ public class OnlyOfficeManager
                                 await _context.SaveChangesAsync();
                                 Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
                             }
+                            else if (forceSaveSource == "auto-save")
+                            {
+                                // Auto-save: File is already saved above, but DON'T update LastModifiedAt
+                                // This keeps the document key stable during the editing session
+                                Console.WriteLine($"[CALLBACK DEBUG] Auto-save detected - File saved to disk, LastModifiedAt remains unchanged to preserve document key");
+                            }
                             else
                             {
-                                Console.WriteLine($"[CALLBACK DEBUG] Not a save-and-close operation - LastModifiedAt remains unchanged");
+                                Console.WriteLine($"[CALLBACK DEBUG] Unknown source ({forceSaveSource ?? "null"}) - LastModifiedAt remains unchanged");
                             }
 
                             // Send SignalR notification about force save
