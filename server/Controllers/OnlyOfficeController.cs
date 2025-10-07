@@ -139,7 +139,8 @@ public class OnlyOfficeController : BaseController
 
         try
         {
-            logger?.LogInformation("ForceSave requested for file ID: {FileId}, Key: {Key}", id, request.Key);
+            logger?.LogInformation("ForceSave requested for file ID: {FileId}, Key: {Key}, Source: {Source}",
+                id, request.Key, request.Source ?? "null");
 
             if (string.IsNullOrEmpty(request.Key))
             {
@@ -154,10 +155,11 @@ public class OnlyOfficeController : BaseController
             {
                 var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
 
-                logger?.LogInformation("Calling OnlyOffice Command Service with key: {Key}", request.Key);
+                logger?.LogInformation("Calling OnlyOffice Command Service with key: {Key}, source: {Source}",
+                    request.Key, request.Source ?? "null");
 
-                // Call OnlyOffice Command Service with the key from frontend
-                var result = await manager.SendForceSaveCommandAsync(request.Key);
+                // Call OnlyOffice Command Service with the key and source from frontend
+                var result = await manager.SendForceSaveCommandAsync(request.Key, request.Source);
 
                 logger?.LogInformation("ForceSave command result - Error: {Error}", result.Error);
 

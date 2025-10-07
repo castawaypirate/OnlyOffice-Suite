@@ -19,6 +19,10 @@ export class FileListComponent implements OnInit {
   selectedFile: File | null = null;
   onlyOfficeEnabled = false;
 
+  // Success modal
+  showSuccessModal = false;
+  successMessage = '';
+
   constructor(
     private router: Router,
     private authService: AuthService,
@@ -33,7 +37,16 @@ export class FileListComponent implements OnInit {
       this.router.navigate(['/login']);
       return;
     }
-    
+
+    // Check if navigated here after successful save
+    const navigation = this.router.getCurrentNavigation();
+    const state = navigation?.extras?.state || (typeof history !== 'undefined' ? history.state : null);
+
+    if (state?.showSaveSuccess) {
+      const fileName = state.fileName || 'Document';
+      this.displaySuccessModal(`All changes to "${fileName}" were saved successfully.`);
+    }
+
     this.loadFiles();
   }
 
@@ -146,5 +159,15 @@ export class FileListComponent implements OnInit {
         this.router.navigate(['/login']);
       }
     });
+  }
+
+  displaySuccessModal(message: string) {
+    this.successMessage = message;
+    this.showSuccessModal = true;
+  }
+
+  closeSuccessModal() {
+    this.showSuccessModal = false;
+    this.successMessage = '';
   }
 }

@@ -80,10 +80,13 @@ export class FileService {
     );
   }
 
-  forceSaveDocument(fileId: string, documentKey: string): Observable<{error: number, message?: string}> {
+  forceSaveDocument(fileId: string, documentKey: string, source?: string): Observable<{error: number, message?: string}> {
     return this.http.post<{error: number, message?: string}>(
       `${this.apiUrl}/onlyoffice/forcesave/${fileId}`,
-      { key: documentKey },
+      {
+        key: documentKey,
+        source: source  // Optional: "save-and-close" or undefined
+      },
       this.getHttpOptionsWithHeaders()
     );
   }

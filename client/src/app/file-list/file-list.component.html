@@ -101,4 +101,14 @@
   <div *ngIf="isLoading" class="loading">
     <p>Loading...</p>
   </div>
+
+  <!-- Success modal -->
+  <div *ngIf="showSuccessModal" class="modal-overlay" (click)="closeSuccessModal()">
+    <div class="modal-content success" (click)="$event.stopPropagation()">
+      <div class="modal-icon">✅</div>
+      <h3>Success</h3>
+      <p>{{ successMessage }}</p>
+      <button class="modal-btn" (click)="closeSuccessModal()">OK</button>
+    </div>
+  </div>
 </div>

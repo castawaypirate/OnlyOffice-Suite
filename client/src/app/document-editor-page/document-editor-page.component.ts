@@ -21,6 +21,15 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   docEditor: any = null; // Reference to OnlyOffice editor instance
   hasUncommittedChanges = true; // Track if document has uncommitted changes (starts true until first save)
 
+  // Save & Close tracking
+  isSaving = false;
+  saveTimeout: any = null;
+  pendingSaveAndClose = false;
+
+  // Error modal
+  showErrorModal = false;
+  errorMessage = '';
+
   private signalrSubscriptions: Subscription[] = [];
 
   constructor(
@@ -37,6 +46,11 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Clear timeout if exists
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
     // Unsubscribe from all SignalR events
     this.signalrSubscriptions.forEach(sub => sub.unsubscribe());
 
@@ -69,6 +83,33 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
 
         const forceSavedSub = this.signalrService.documentForceSaved$.subscribe(data => {
           console.log('[COMPONENT] Document force saved notification:', data);
+
+          // Only navigate if this was OUR "save & close" operation
+          if (this.pendingSaveAndClose && data.source === 'save-and-close') {
+            console.log('[COMPONENT] Save & close confirmed, navigating to file list');
+
+            if (data.success) {
+              // Clear timeout and loading state
+              if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+              }
+              this.isSaving = false;
+              this.pendingSaveAndClose = false;
+
+              // Navigate with success state
+              this.router.navigate(['/files'], {
+                state: { showSaveSuccess: true, fileName: this.fileName }
+              });
+            } else {
+              // Save failed
+              this.isSaving = false;
+              this.pendingSaveAndClose = false;
+              if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+              }
+              this.displayErrorModal('Save failed: ' + (data.message || 'Unknown error'));
+            }
+          }
         });
 
         this.signalrSubscriptions.push(callbackSub, savedSub, forceSavedSub);
@@ -130,33 +171,44 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
 
     if (!documentKey) {
       console.error('❌ No document key available');
-      this.router.navigate(['/files']);
+      this.displayErrorModal('Cannot save: Document key not available');
       return;
     }
 
     console.log('📤 Sending forceSave with key:', documentKey);
 
-    // Call backend forcesave endpoint with the current document key
-    this.fileService.forceSaveDocument(this.fileId, documentKey).subscribe({
+    // Set loading state
+    this.isSaving = true;
+    this.pendingSaveAndClose = true;
+
+    // Call backend forcesave endpoint with source "save-and-close"
+    this.fileService.forceSaveDocument(this.fileId, documentKey, 'save-and-close').subscribe({
       next: (result) => {
         console.log('✅ ForceSave command sent successfully:', result);
 
         if (result.error === 0) {
-          console.log('✅ Document saved successfully');
-          // Wait a moment for the callback to complete, then navigate
-          setTimeout(() => {
-            this.router.navigate(['/files']);
-          }, 2000); // 2 seconds for callback to process
+          console.log('✅ ForceSave command accepted, waiting for SignalR confirmation...');
+
+          // Set timeout for 10 seconds
+          this.saveTimeout = setTimeout(() => {
+            console.error('❌ Save timeout: No SignalR confirmation received');
+            this.isSaving = false;
+            this.pendingSaveAndClose = false;
+            this.displayErrorModal('Save timeout: The document may not have been saved. Please try again.');
+          }, 10000);
+
         } else {
           console.error('❌ ForceSave command failed:', result.message);
-          // Still navigate even if save failed
-          this.router.navigate(['/files']);
+          this.isSaving = false;
+          this.pendingSaveAndClose = false;
+          this.displayErrorModal('Failed to save: ' + (result.message || 'Unknown error'));
         }
       },
       error: (error) => {
         console.error('❌ Failed to send ForceSave command:', error);
-        // Navigate anyway to avoid getting stuck
-        this.router.navigate(['/files']);
+        this.isSaving = false;
+        this.pendingSaveAndClose = false;
+        this.displayErrorModal('Error while saving: ' + (error.message || 'Network error'));
       }
     });
   }
@@ -186,5 +238,15 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
 
   onError(event: any) {
     console.log('OnlyOffice error:', event);
+  }
+
+  displayErrorModal(message: string) {
+    this.errorMessage = message;
+    this.showErrorModal = true;
+  }
+
+  closeErrorModal() {
+    this.showErrorModal = false;
+    this.errorMessage = '';
   }
 }

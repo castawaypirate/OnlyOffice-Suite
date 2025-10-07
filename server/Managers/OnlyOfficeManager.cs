@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using OnlyOfficeServer.Data;
 using Microsoft.AspNetCore.SignalR;
 using OnlyOfficeServer.Hubs;
+using System.Collections.Concurrent;
 
 namespace OnlyOfficeServer.Managers;
 
@@ -18,6 +19,10 @@ public class OnlyOfficeManager
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _context;
     private readonly IHubContext<OnlyOfficeHub>? _hubContext;
+
+    // Static in-memory cache to track pending force save operations
+    // Key: document key, Value: source ("save-and-close" or other)
+    private static readonly ConcurrentDictionary<string, string> PendingForceSaves = new();
 
     public OnlyOfficeManager(IOnlyOfficeRepository repository, IConfiguration configuration, AppDbContext context, IHubContext<OnlyOfficeHub>? hubContext = null)
     {
@@ -208,7 +213,7 @@ public class OnlyOfficeManager
     }
 
     // Send forcesave command to OnlyOffice Command Service
-    public async Task<ForceSaveCommandResult> SendForceSaveCommandAsync(string documentKey)
+    public async Task<ForceSaveCommandResult> SendForceSaveCommandAsync(string documentKey, string? source = null)
     {
         var documentServerUrl = _configuration["OnlyOffice:DocumentServerUrl"];
         var jwtSecret = _configuration["OnlyOffice:JwtSecret"];
@@ -221,6 +226,13 @@ public class OnlyOfficeManager
         if (string.IsNullOrEmpty(jwtSecret))
         {
             throw new InvalidOperationException("OnlyOffice JwtSecret not configured");
+        }
+
+        // Store the source in cache if provided
+        if (!string.IsNullOrEmpty(source))
+        {
+            PendingForceSaves[documentKey] = source;
+            Console.WriteLine($"[FORCESAVE] Stored source '{source}' for document key: {documentKey}");
         }
 
         // Build command service URL
@@ -379,10 +391,11 @@ public class OnlyOfficeManager
                         await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
                         Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
 
-                        // Update LastModifiedAt to change the document key for next edit session
+                        // Status 2 means the editor is closing with changes
+                        // Update LastModifiedAt so the next time the document is opened, it gets a new key
                         var oldModifiedAt = fileEntity.LastModifiedAt;
                         fileEntity.LastModifiedAt = DateTime.UtcNow;
-                        Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+                        Console.WriteLine($"[CALLBACK DEBUG] Editor closing - Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
 
                         await _context.SaveChangesAsync();
                         Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
@@ -412,6 +425,11 @@ public class OnlyOfficeManager
 
                 case 6: // Document force saved
                     Console.WriteLine($"[CALLBACK DEBUG] Status 6 - Document force saved");
+
+                    // Check if this force save has a tracked source
+                    PendingForceSaves.TryGetValue(callback.Key, out var forceSaveSource);
+                    Console.WriteLine($"[CALLBACK DEBUG] Force save source: {forceSaveSource ?? "null"}");
+
                     if (!string.IsNullOrEmpty(callback.Url))
                     {
                         Console.WriteLine($"[CALLBACK DEBUG] Downloading from: {callback.Url}");
@@ -424,13 +442,22 @@ public class OnlyOfficeManager
                             await File.WriteAllBytesAsync(fileEntity.FilePath, editedFileBytes);
                             Console.WriteLine($"[CALLBACK DEBUG] File written successfully");
 
-                            // Update LastModifiedAt to change the document key for next edit session
-                            var oldModifiedAt = fileEntity.LastModifiedAt;
-                            fileEntity.LastModifiedAt = DateTime.UtcNow;
-                            Console.WriteLine($"[CALLBACK DEBUG] Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
+                            // Update LastModifiedAt ONLY if this is a "save-and-close" operation
+                            // This ensures the document key stays stable during the editing session
+                            // but changes when the user explicitly closes the document
+                            if (forceSaveSource == "save-and-close")
+                            {
+                                var oldModifiedAt = fileEntity.LastModifiedAt;
+                                fileEntity.LastModifiedAt = DateTime.UtcNow;
+                                Console.WriteLine($"[CALLBACK DEBUG] Save-and-close detected - Updating LastModifiedAt from {oldModifiedAt:yyyy-MM-dd HH:mm:ss} to {fileEntity.LastModifiedAt:yyyy-MM-dd HH:mm:ss}");
 
-                            await _context.SaveChangesAsync();
-                            Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+                                await _context.SaveChangesAsync();
+                                Console.WriteLine($"[CALLBACK DEBUG] Database updated successfully");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[CALLBACK DEBUG] Not a save-and-close operation - LastModifiedAt remains unchanged");
+                            }
 
                             // Send SignalR notification about force save
                             if (_hubContext != null)
@@ -439,15 +466,38 @@ public class OnlyOfficeManager
                                 {
                                     fileId = fileId.ToString(),
                                     status = callback.Status,
-                                    message = "Document force saved successfully"
+                                    message = "Document force saved successfully",
+                                    success = true,
+                                    source = forceSaveSource,  // Include the source ("save-and-close" or null)
+                                    savedAt = DateTime.UtcNow
                                 });
-                                Console.WriteLine($"[SIGNALR] Sent DocumentForceSaved notification for file {fileId}");
+                                Console.WriteLine($"[SIGNALR] Sent DocumentForceSaved notification for file {fileId}, source: {forceSaveSource ?? "null"}");
                             }
+
+                            // Clean up the pending force save entry
+                            PendingForceSaves.TryRemove(callback.Key, out _);
+                            Console.WriteLine($"[CALLBACK DEBUG] Removed pending force save entry for key: {callback.Key}");
                         }
                     }
                     else
                     {
                         Console.WriteLine($"[CALLBACK DEBUG] No URL provided for status 6");
+
+                        // Still send SignalR notification but with success = false
+                        if (_hubContext != null)
+                        {
+                            await _hubContext.Clients.Group($"file-{fileId}").SendAsync("DocumentForceSaved", new
+                            {
+                                fileId = fileId.ToString(),
+                                status = callback.Status,
+                                message = "Force save completed but no URL provided",
+                                success = false,
+                                source = forceSaveSource
+                            });
+                        }
+
+                        // Clean up the pending force save entry
+                        PendingForceSaves.TryRemove(callback.Key, out _);
                     }
                     return true;
 

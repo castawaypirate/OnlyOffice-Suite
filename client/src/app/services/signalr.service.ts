@@ -6,6 +6,9 @@ export interface CallbackNotification {
   fileId: string;
   status: number;
   message: string;
+  success?: boolean;
+  source?: string;  // "save-and-close" or null
+  savedAt?: string;
 }
 
 @Injectable({

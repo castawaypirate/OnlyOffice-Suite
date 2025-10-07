@@ -31,4 +31,6 @@ public class ForceSaveRequest
 {
     [Required]
     public string Key { get; set; } = string.Empty;
+
+    public string? Source { get; set; }  // "save-and-close" or null
 }
