@@ -215,8 +215,6 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
 
   onDocumentReady(event: any) {
     console.log('🔧 Document editor is ready for file:', this.fileId);
-    console.log('🔧 Editor instance:', event);
-    console.log('🔧 forceSave available?', typeof event?.forceSave === 'function');
 
     // When document loads, assume no uncommitted changes (document is in saved state)
     this.hasUncommittedChanges = false;

@@ -80,10 +80,19 @@ public class OnlyOfficeManager
             {
                 Mode = "edit",
                 CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}",
+                Lang = "el",
+                Region = "el-GR",
                 User = new UserConfig
                 {
                     Id = user.Id.ToString(),
                     Name = user.Username
+                },
+                Customization = new CustomizationConfig
+                {
+                    Logo = new LogoConfig
+                    {
+                        Visible = false
+                    }
                 }
             },
             OnlyOfficeServerUrl = documentServerUrl ?? string.Empty
@@ -153,10 +162,19 @@ public class OnlyOfficeManager
             {
                 mode = config.EditorConfig.Mode,
                 callbackUrl = config.EditorConfig.CallbackUrl,
+                lang = config.EditorConfig.Lang,
+                region = config.EditorConfig.Region,
                 user = config.EditorConfig.User != null ? new
                 {
                     id = config.EditorConfig.User.Id,
                     name = config.EditorConfig.User.Name
+                } : null,
+                customization = config.EditorConfig.Customization != null ? new
+                {
+                    logo = config.EditorConfig.Customization.Logo != null ? new
+                    {
+                        visible = config.EditorConfig.Customization.Logo.Visible
+                    } : null
                 } : null
             }
         };
@@ -558,7 +576,20 @@ public class EditorConfig
 {
     public string Mode { get; set; } = string.Empty;
     public string? CallbackUrl { get; set; }
+    public string? Lang { get; set; }
+    public string? Region { get; set; }
     public UserConfig? User { get; set; }
+    public CustomizationConfig? Customization { get; set; }
+}
+
+public class CustomizationConfig
+{
+    public LogoConfig? Logo { get; set; }
+}
+
+public class LogoConfig
+{
+    public bool Visible { get; set; } = true;
 }
 
 public class UserConfig

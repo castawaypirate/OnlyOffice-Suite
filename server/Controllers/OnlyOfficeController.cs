@@ -99,10 +99,19 @@ public class OnlyOfficeController : BaseController
                         {
                             mode = config.EditorConfig.Mode,
                             callbackUrl = config.EditorConfig.CallbackUrl,
+                            lang = config.EditorConfig.Lang,
+                            region = config.EditorConfig.Region,
                             user = config.EditorConfig.User != null ? new
                             {
                                 id = config.EditorConfig.User.Id,
                                 name = config.EditorConfig.User.Name
+                            } : null,
+                            customization = config.EditorConfig.Customization != null ? new
+                            {
+                                logo = config.EditorConfig.Customization.Logo != null ? new
+                                {
+                                    visible = config.EditorConfig.Customization.Logo.Visible
+                                } : null
                             } : null
                         },
                         token = config.Token,
