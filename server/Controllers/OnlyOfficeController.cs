@@ -5,6 +5,7 @@ using OnlyOfficeServer.Data;
 using OnlyOfficeServer.Models;
 using Microsoft.AspNetCore.SignalR;
 using OnlyOfficeServer.Hubs;
+using Microsoft.EntityFrameworkCore;
 
 namespace OnlyOfficeServer.Controllers;
 
@@ -21,8 +22,25 @@ public class OnlyOfficeController : BaseController
         _hubContext = hubContext;
     }
     [HttpGet("download/{id}")]
-    public async Task<IActionResult> DownloadFile(Guid id)
+    public async Task<IActionResult> DownloadFile(Guid id, [FromQuery] string token)
     {
+        // Get context
+        var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+        // Minimal token validation
+        var session = await context!.OnlyOfficeDocumentSessions
+            .FirstOrDefaultAsync(s =>
+                s.FileId == id &&
+                s.OnlyOfficeToken == token &&
+                !s.IsDeleted &&
+                s.ExpiresAt > DateTime.UtcNow
+            );
+
+        if (session == null)
+        {
+            return Unauthorized(new { error = 1, message = "Invalid or expired token" });
+        }
+
         // Manual using statement for resource management
         using (var repository = new OnlyOfficeRepository())
         {
@@ -30,11 +48,10 @@ public class OnlyOfficeController : BaseController
             {
                 // Get configuration from appsettings
                 var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
-                var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
                 var manager = new OnlyOfficeManager(repository, configuration!, context!, _hubContext);
                 var fileResult = await manager.GetFileForDownloadAsync(id);
-                
+
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
             }
             catch (FileNotFoundException ex)
@@ -74,7 +91,21 @@ public class OnlyOfficeController : BaseController
                 // Get base URL from InstallationManager
                 var baseUrl = await _installationManager.GetApplicationUrlAsync(applicationId);
 
-                var config = await manager.GetConfigAsync(id, baseUrl, userId);
+                // Create OnlyOfficeDocumentSession with token
+                var onlyOfficeToken = Guid.NewGuid().ToString("N");
+                var documentSession = new OnlyOfficeDocumentSession
+                {
+                    UserId = userId,
+                    FileId = id,
+                    OnlyOfficeToken = onlyOfficeToken,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddHours(24),
+                    IsDeleted = false
+                };
+                context!.OnlyOfficeDocumentSessions.Add(documentSession);
+                await context.SaveChangesAsync();
+
+                var config = await manager.GetConfigAsync(id, baseUrl, userId, onlyOfficeToken);
 
                 // Convert business result to API response format (now includes JWT token)
                 var response = new
@@ -183,7 +214,7 @@ public class OnlyOfficeController : BaseController
     }
 
     [HttpPost("callback/{id}")]
-    public async Task<IActionResult> HandleCallback(Guid id, [FromBody] CallbackRequest request)
+    public async Task<IActionResult> HandleCallback(Guid id, [FromQuery] string token, [FromBody] CallbackRequest request)
     {
         var logger = HttpContext.RequestServices.GetService<ILogger<OnlyOfficeController>>();
         var requestId = Guid.NewGuid().ToString("N")[..8];
@@ -193,6 +224,25 @@ public class OnlyOfficeController : BaseController
 
         try
         {
+            // Get configuration from appsettings
+            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
+
+            // Minimal token validation
+            var session = await context!.OnlyOfficeDocumentSessions
+                .FirstOrDefaultAsync(s =>
+                    s.FileId == id &&
+                    s.OnlyOfficeToken == token &&
+                    !s.IsDeleted &&
+                    s.ExpiresAt > DateTime.UtcNow
+                );
+
+            if (session == null)
+            {
+                logger?.LogWarning("Invalid callback token for file {FileId}", id);
+                return Ok(new { error = 1, message = "Invalid or expired token" });
+            }
+
             // Log all incoming request data
             logger?.LogInformation("Callback Request Details - ID: {RequestId}, Status: {Status}, Key: {Key}, URL: {Url}, Users: {Users}",
                 requestId, request.Status, request.Key, request.Url ?? "null",
@@ -201,10 +251,6 @@ public class OnlyOfficeController : BaseController
             // Log headers for debugging
             logger?.LogInformation("Request Headers - ID: {RequestId}, Content-Type: {ContentType}, User-Agent: {UserAgent}",
                 requestId, Request.ContentType, Request.Headers.UserAgent.ToString());
-
-            // Get configuration from appsettings
-            var configuration = HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
-            var context = HttpContext.RequestServices.GetService(typeof(AppDbContext)) as AppDbContext;
 
             // Manual using statement for resource management
             using (var repository = new OnlyOfficeRepository())

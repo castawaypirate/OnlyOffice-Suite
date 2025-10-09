@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<FileEntity> Files { get; set; }
     public DbSet<Installation> Installations { get; set; }
+    public DbSet<OnlyOfficeDocumentSession> OnlyOfficeDocumentSessions { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +44,15 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.ApplicationId).IsUnique();
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("datetime('now')");
+        });
+
+        // Configure OnlyOfficeDocumentSession entity
+        modelBuilder.Entity<OnlyOfficeDocumentSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.OnlyOfficeToken).IsUnique();
+            entity.HasIndex(e => new { e.FileId, e.OnlyOfficeToken, e.IsDeleted, e.ExpiresAt });
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("datetime('now')");
         });
     }
 }

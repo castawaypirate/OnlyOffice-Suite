@@ -32,7 +32,7 @@ public class OnlyOfficeManager
         _hubContext = hubContext;
     }
 
-    public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl, Guid userId)
+    public async Task<OnlyOfficeConfigResult> GetConfigAsync(Guid fileId, string baseUrl, Guid userId, string onlyOfficeToken)
     {
         // Business logic: Get file and validate
         var fileEntity = await _repository.GetFileByIdAsync(fileId);
@@ -67,7 +67,7 @@ public class OnlyOfficeManager
                 FileType = GetFileExtension(fileEntity.OriginalName),
                 Key = GenerateDocumentKey(fileEntity),
                 Title = fileEntity.OriginalName,
-                Url = $"{hostUrl}/api/onlyoffice/download/{fileEntity.Id}",
+                Url = $"{hostUrl}/api/onlyoffice/download/{fileEntity.Id}?token={onlyOfficeToken}",
                 Permissions = new PermissionsConfig
                 {
                     Edit = true,
@@ -79,7 +79,7 @@ public class OnlyOfficeManager
             EditorConfig = new EditorConfig
             {
                 Mode = "edit",
-                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}",
+                CallbackUrl = $"{hostUrl}/api/onlyoffice/callback/{fileEntity.Id}?token={onlyOfficeToken}",
                 Lang = "el",
                 Region = "el-GR",
                 User = new UserConfig
