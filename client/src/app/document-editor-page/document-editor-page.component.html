@@ -1,10 +1,7 @@
 <div class="editor-page">
   <div class="editor-header">
-    <button class="back-btn" (click)="goBack()" [disabled]="isSaving">
+    <button class="back-btn" (click)="goBack()">
       ← Back to Files
-    </button>
-    <button class="save-close-btn" (click)="saveAndClose()" [disabled]="hasUncommittedChanges || isSaving">
-      💾 Save & Close
     </button>
     <h2>{{ fileName }}</h2>
   </div>
@@ -22,20 +19,33 @@
     Loading document...
   </div>
 
-  <!-- Loading overlay for save operation -->
-  <div *ngIf="isSaving" class="loading-overlay">
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p>Saving document...</p>
+  <!-- Uncommitted changes modal -->
+  <div *ngIf="showUncommittedModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Uncommitted Changes</h3>
+      <p>You have uncommitted changes. Please wait for OnlyOffice to auto-commit your changes before navigating away.</p>
+      <button class="modal-btn" (click)="closeUncommittedModal()">OK</button>
     </div>
   </div>
 
-  <!-- Error modal -->
-  <div *ngIf="showErrorModal" class="modal-overlay" (click)="closeErrorModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <h3>Error</h3>
-      <p>{{ errorMessage }}</p>
-      <button class="modal-btn" (click)="closeErrorModal()">OK</button>
+  <!-- Saving in progress modal -->
+  <div *ngIf="showSavingModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-spinner">
+        <div class="spinner"></div>
+      </div>
+      <h3>Saving...</h3>
+      <p>{{ savingModalMessage }}</p>
+    </div>
+  </div>
+
+  <!-- Save result modal -->
+  <div *ngIf="showSaveResultModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>{{ saveResultTitle }}</h3>
+      <p>{{ saveResultMessage }}</p>
+      <button *ngIf="saveResultSuccess" class="modal-btn" (click)="navigateAfterSaveSuccess()">OK</button>
+      <button *ngIf="!saveResultSuccess" class="modal-btn" (click)="closeSaveResultModal()">Back to Editor</button>
     </div>
   </div>
 </div>

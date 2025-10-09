@@ -19,16 +19,18 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   config: IConfig | null = null;
   editorKey = '';
   docEditor: any = null; // Reference to OnlyOffice editor instance
-  hasUncommittedChanges = true; // Track if document has uncommitted changes (starts true until first save)
+  hasUncommittedChanges = false; // Track if document has uncommitted changes
+  lastForceSaveCompleted = true; // Track if last force-save callback completed (starts true = freshly loaded)
 
-  // Save & Close tracking
-  isSaving = false;
+  // Modal states
+  showUncommittedModal = false;
+  showSavingModal = false;
+  savingModalMessage = 'Please wait while your document is being saved...';
+  showSaveResultModal = false;
+  saveResultTitle = '';
+  saveResultMessage = '';
+  saveResultSuccess = false;
   saveTimeout: any = null;
-  pendingSaveAndClose = false;
-
-  // Error modal
-  showErrorModal = false;
-  errorMessage = '';
 
   private signalrSubscriptions: Subscription[] = [];
 
@@ -84,30 +86,42 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
         const forceSavedSub = this.signalrService.documentForceSaved$.subscribe(data => {
           console.log('[COMPONENT] Document force saved notification:', data);
 
-          // Only navigate if this was OUR "save & close" operation
-          if (this.pendingSaveAndClose && data.source === 'save-and-close') {
-            console.log('[COMPONENT] Save & close confirmed, navigating to file list');
-
+          // Handle auto-save completion
+          if (data.source === 'auto-save') {
             if (data.success) {
-              // Clear timeout and loading state
-              if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
-              }
-              this.isSaving = false;
-              this.pendingSaveAndClose = false;
+              console.log('[COMPONENT] Auto force-save completed successfully');
+              this.lastForceSaveCompleted = true;
 
-              // Navigate with success state
-              this.router.navigate(['/files'], {
-                state: { showSaveSuccess: true, fileName: this.fileName }
-              });
-            } else {
-              // Save failed
-              this.isSaving = false;
-              this.pendingSaveAndClose = false;
-              if (this.saveTimeout) {
-                clearTimeout(this.saveTimeout);
+              // If saving modal is open, close it and show success
+              if (this.showSavingModal) {
+                this.showSavingModal = false;
+                this.showSaveResultModal = true;
+                this.saveResultSuccess = true;
+                this.saveResultTitle = 'Save Successful';
+                this.saveResultMessage = 'Your document has been saved successfully.';
+
+                // Clear timeout
+                if (this.saveTimeout) {
+                  clearTimeout(this.saveTimeout);
+                }
               }
-              this.displayErrorModal('Save failed: ' + (data.message || 'Unknown error'));
+            } else {
+              console.error('[COMPONENT] Auto force-save failed:', data.message);
+              this.lastForceSaveCompleted = true; // Allow navigation attempt even on failure
+
+              // If saving modal is open, show error
+              if (this.showSavingModal) {
+                this.showSavingModal = false;
+                this.showSaveResultModal = true;
+                this.saveResultSuccess = false;
+                this.saveResultTitle = 'Save Failed';
+                this.saveResultMessage = data.message || 'The document could not be saved. Please try again.';
+
+                // Clear timeout
+                if (this.saveTimeout) {
+                  clearTimeout(this.saveTimeout);
+                }
+              }
             }
           }
         });
@@ -160,57 +174,38 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.router.navigate(['/files']);
-  }
+    console.log('🔙 Back to Files clicked');
+    console.log('State: hasUncommittedChanges =', this.hasUncommittedChanges, ', lastForceSaveCompleted =', this.lastForceSaveCompleted);
 
-  saveAndClose() {
-    console.log('💾 Save & Close button clicked');
-
-    // Get the document key from the current config
-    const documentKey = this.config?.document?.key;
-
-    if (!documentKey) {
-      console.error('❌ No document key available');
-      this.displayErrorModal('Cannot save: Document key not available');
+    // Check if there are uncommitted changes
+    if (this.hasUncommittedChanges) {
+      console.log('⚠️ Uncommitted changes detected, showing modal');
+      this.showUncommittedModal = true;
       return;
     }
 
-    console.log('📤 Sending forceSave with key:', documentKey);
+    // Check if force-save is in progress
+    if (!this.lastForceSaveCompleted) {
+      console.log('⏳ Force-save in progress, showing saving modal');
+      this.showSavingModal = true;
+      this.savingModalMessage = 'Please wait while your document is being saved...';
 
-    // Set loading state
-    this.isSaving = true;
-    this.pendingSaveAndClose = true;
+      // Set timeout for 15 seconds
+      this.saveTimeout = setTimeout(() => {
+        console.error('❌ Save timeout: No SignalR confirmation received');
+        this.showSavingModal = false;
+        this.showSaveResultModal = true;
+        this.saveResultSuccess = false;
+        this.saveResultTitle = 'Save Timeout';
+        this.saveResultMessage = 'The save operation is taking longer than expected. Please try again or contact support.';
+      }, 15000);
 
-    // Call backend forcesave endpoint with source "save-and-close"
-    this.fileService.forceSaveDocument(this.fileId, documentKey, 'save-and-close').subscribe({
-      next: (result) => {
-        console.log('✅ ForceSave command sent successfully:', result);
+      return;
+    }
 
-        if (result.error === 0) {
-          console.log('✅ ForceSave command accepted, waiting for SignalR confirmation...');
-
-          // Set timeout for 10 seconds
-          this.saveTimeout = setTimeout(() => {
-            console.error('❌ Save timeout: No SignalR confirmation received');
-            this.isSaving = false;
-            this.pendingSaveAndClose = false;
-            this.displayErrorModal('Save timeout: The document may not have been saved. Please try again.');
-          }, 10000);
-
-        } else {
-          console.error('❌ ForceSave command failed:', result.message);
-          this.isSaving = false;
-          this.pendingSaveAndClose = false;
-          this.displayErrorModal('Failed to save: ' + (result.message || 'Unknown error'));
-        }
-      },
-      error: (error) => {
-        console.error('❌ Failed to send ForceSave command:', error);
-        this.isSaving = false;
-        this.pendingSaveAndClose = false;
-        this.displayErrorModal('Error while saving: ' + (error.message || 'Network error'));
-      }
-    });
+    // All clear - navigate
+    console.log('✅ All clear, navigating to files');
+    this.router.navigate(['/files']);
   }
 
   onDocumentReady(event: any) {
@@ -229,8 +224,11 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
       console.log('⚠️ Document has uncommitted changes (editing in progress)');
       this.hasUncommittedChanges = true;
     } else if (event && event.data === false) {
-      console.log('✅ All changes committed (saved internally, safe to close)');
+      console.log('✅ All changes committed (saved internally), triggering force-save');
       this.hasUncommittedChanges = false;
+
+      // Reset flag to false when force-save is initiated (Option B)
+      this.lastForceSaveCompleted = false;
 
       // Auto force-save to ensure physical file is always up-to-date
       const documentKey = this.config?.document?.key;
@@ -240,12 +238,20 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
           next: (result) => {
             if (result.error === 0) {
               console.log('✅ Auto force-save command sent successfully');
+            } else if (result.error === 4) {
+              console.log('ℹ️ Auto force-save: No changes to save (already saved)');
+              // Error 4 means already saved, set flag back to true
+              this.lastForceSaveCompleted = true;
             } else {
               console.warn('⚠️ Auto force-save command failed:', result.message);
+              // On error, reset flag to true so user can try to navigate
+              this.lastForceSaveCompleted = true;
             }
           },
           error: (error) => {
             console.error('❌ Auto force-save failed:', error);
+            // On error, reset flag to true so user can try to navigate
+            this.lastForceSaveCompleted = true;
           }
         });
       }
@@ -256,13 +262,20 @@ export class DocumentEditorPageComponent implements OnInit, OnDestroy {
     console.log('OnlyOffice error:', event);
   }
 
-  displayErrorModal(message: string) {
-    this.errorMessage = message;
-    this.showErrorModal = true;
+  // Modal handlers
+  closeUncommittedModal() {
+    this.showUncommittedModal = false;
   }
 
-  closeErrorModal() {
-    this.showErrorModal = false;
-    this.errorMessage = '';
+  closeSaveResultModal() {
+    this.showSaveResultModal = false;
+    this.saveResultTitle = '';
+    this.saveResultMessage = '';
+    this.saveResultSuccess = false;
+  }
+
+  navigateAfterSaveSuccess() {
+    this.closeSaveResultModal();
+    this.router.navigate(['/files']);
   }
 }
